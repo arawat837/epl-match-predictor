@@ -1,30 +1,34 @@
+"""Hand-checked values for the feature spec in src/features.py."""
+
 import math
 
 import pandas as pd
 import pytest
 
-from src.features import FeatureParams, build_features, feature_columns
+from src.features import build_features, feature_columns
 
-# A: home win 2-0, away draw 1-1, home loss 0-1, then away at C.
-FORM_ROWS = [
+# A and B play each other, alternating venues. Shots are 10 + goals, on target 2 + goals.
+DUEL_ROWS = [
     ("2005-08-13", "A", "B", 2, 0),
     ("2005-08-20", "B", "A", 1, 1),
-    ("2005-08-27", "A", "C", 0, 1),
-    ("2005-09-03", "C", "A", 0, 3),
+    ("2005-08-27", "A", "B", 0, 1),
+    ("2005-09-03", "B", "A", 0, 3),
+    ("2005-09-10", "A", "B", 1, 0),
+    ("2005-09-30", "B", "A", 2, 2),  # 20 days after the last match
+    ("2005-10-07", "A", "B", 0, 0),
 ]
-# X plays every season; Y is relegated after 2005-06 and returns in 2007-08; W is promoted in 2006-07.
+# X plays both seasons, Y only the first, W is promoted for the second.
 SEASON_ROWS = [
     ("2005-08-13", "X", "Y", 1, 0),
     ("2005-08-20", "Y", "X", 1, 1),
     ("2006-08-19", "X", "W", 2, 0),
     ("2006-08-26", "W", "X", 0, 0),
-    ("2007-08-18", "Y", "X", 0, 0),
 ]
 
 
 @pytest.fixture
-def form(make_matches) -> pd.DataFrame:
-    return build_features(make_matches(FORM_ROWS))
+def duel(make_matches) -> pd.DataFrame:
+    return build_features(make_matches(DUEL_ROWS))
 
 
 @pytest.fixture
@@ -32,69 +36,65 @@ def seasons(make_matches) -> pd.DataFrame:
     return build_features(make_matches(SEASON_ROWS))
 
 
-def test_feature_list(form):
-    columns = feature_columns(form)
-    assert len(columns) == 47
-    assert columns[:3] == ["home_elo", "away_elo", "elo_diff"]
-    assert {"home_ppg_last5_home_only", "away_gf_last10_away_only", "home_sot_against_last10",
-            "away_days_rest", "home_season_ppg"} <= set(columns)
-    assert not any(column.startswith("home_") and column.endswith("_away_only") for column in columns)
+def test_feature_list(duel):
+    columns = feature_columns(duel)
+    assert len(columns) == 54
+    assert columns[:3] == ["elo_home", "elo_away", "elo_diff"]
+    assert {"home_points_last5", "away_sot_for_last10", "home_points_venue_last5",
+            "away_ga_venue_last5", "home_days_rest", "away_season_ppg",
+            "points_last5_diff", "season_ppg_diff"} <= set(columns)
 
 
-def test_first_match_has_no_form_or_rest(form):
-    assert form.loc[0, ["home_ppg_last5", "home_gf_last5", "home_days_rest"]].isna().all()
+def test_rolling_needs_three_earlier_matches(duel):
+    assert math.isnan(duel.loc[2, "home_points_last5"])  # A has played 2
+    assert duel.loc[3, "away_points_last5"] == pytest.approx(4 / 3)  # A: 3, 1, 0
 
 
-def test_form_averages_previous_matches_only(form):
-    a_at_c = form.loc[3]
-    assert a_at_c["away_ppg_last5"] == pytest.approx(4 / 3)  # 3, 1, 0
-    assert a_at_c["away_gf_last5"] == pytest.approx(1.0)  # 2, 1, 0
-    assert a_at_c["away_ga_last5"] == pytest.approx(2 / 3)  # 0, 1, 1
+def test_all_venue_means_use_only_earlier_matches(duel):
+    a_at_b = duel.loc[3]  # A's earlier matches: 2-0 home, 1-1 away, 0-1 home
+    assert a_at_b["away_gf_last5"] == pytest.approx(1)
+    assert a_at_b["away_ga_last5"] == pytest.approx(2 / 3)
+    assert a_at_b["away_shots_for_last5"] == pytest.approx(11)  # 12, 11, 10
+    assert a_at_b["away_shots_against_last5"] == pytest.approx(32 / 3)  # 10, 11, 11
+    assert a_at_b["away_sot_for_last5"] == pytest.approx(3)  # 4, 3, 2
 
 
-def test_venue_form_uses_only_matches_at_that_venue(form):
-    assert form.loc[3, "away_ppg_last5_away_only"] == 1.0  # only the draw at B
-    assert form.loc[2, "home_ppg_last5_home_only"] == 3.0  # only the win over B
-    assert form.loc[2, "home_ppg_last5"] == 2.0  # win and draw
+def test_last5_and_last10_windows(duel):
+    assert duel.loc[6, "home_points_last5"] == pytest.approx(8 / 5)  # A: 1, 0, 3, 3, 1
+    assert duel.loc[6, "home_points_last10"] == pytest.approx(11 / 6)  # A: 3, 1, 0, 3, 3, 1
 
 
-def test_window_length_is_respected(make_matches):
-    features = build_features(make_matches(FORM_ROWS), FeatureParams(windows=(2,)))
-    assert features.loc[3, "away_ppg_last2"] == 0.5  # draw, loss
+def test_venue_form_uses_home_matches_for_home_team_and_away_matches_for_away_team(duel):
+    final = duel.loc[6]
+    assert final["home_points_venue_last5"] == pytest.approx(2)  # A at home: 3, 0, 3
+    assert final["home_gf_venue_last5"] == pytest.approx(1)  # 2, 0, 1
+    assert final["home_ga_venue_last5"] == pytest.approx(1 / 3)  # 0, 1, 0
+    assert final["away_points_venue_last5"] == pytest.approx(1)  # B away: 0, 3, 0
 
 
-def test_shot_averages_for_and_against(form):
-    a_at_c = form.loc[3]
-    assert a_at_c["away_shots_for_last5"] == pytest.approx(11)  # 12, 11, 10
-    assert a_at_c["away_shots_against_last5"] == pytest.approx(32 / 3)  # 10, 11, 11
-    assert a_at_c["away_sot_for_last5"] == pytest.approx(3)  # 4, 3, 2
-    assert a_at_c["away_sot_against_last5"] == pytest.approx(8 / 3)  # 2, 3, 3
+def test_diff_is_home_minus_away(duel):
+    final = duel.loc[6]
+    assert final["points_last5_diff"] == pytest.approx(8 / 5 - 1)  # B: 1, 3, 0, 0, 1
+    assert final["points_venue_last5_diff"] == pytest.approx(2 - 1)
 
 
-def test_days_rest(form):
-    assert form.loc[1, "away_days_rest"] == 7
-    assert form.loc[3, "away_days_rest"] == 7
+def test_days_rest_is_capped_at_14_and_missing_before_a_first_match(duel):
+    assert math.isnan(duel.loc[0, "home_days_rest"])
+    assert duel.loc[1, "away_days_rest"] == 7
+    assert duel.loc[5, "away_days_rest"] == 14  # 20 days, capped
 
 
-def test_season_ppg_in_the_first_season_has_no_prior(seasons):
-    assert math.isnan(seasons.loc[0, "home_season_ppg"])
-    assert seasons.loc[1, "home_season_ppg"] == 0.0  # Y lost its only match
-    assert seasons.loc[1, "away_season_ppg"] == 3.0  # X won its only match
+def test_season_ppg_blends_in_five_games_of_last_seasons_ppg(seasons):
+    assert seasons.loc[0, "home_season_ppg"] == pytest.approx(1.0)  # first season: 1.0
+    assert seasons.loc[1, "away_season_ppg"] == pytest.approx((5 * 1.0 + 3) / (5 + 1))
+    assert seasons.loc[2, "home_season_ppg"] == pytest.approx(2.0)  # X last season: 3, 1
+    assert seasons.loc[3, "away_season_ppg"] == pytest.approx((5 * 2.0 + 3) / (5 + 1))
 
 
-def test_season_ppg_carries_over_last_season_and_fades(seasons):
-    assert seasons.loc[2, "home_season_ppg"] == pytest.approx(2.0)  # X: last season's 2.0, no games yet
-    assert seasons.loc[3, "away_season_ppg"] == pytest.approx((3 + 5 * 2.0) / (1 + 5))
+def test_promoted_team_uses_1_point_per_game(seasons):
+    assert seasons.loc[2, "away_season_ppg"] == pytest.approx(1.0)
+    assert seasons.loc[3, "home_season_ppg"] == pytest.approx((5 * 1.0 + 0) / (5 + 1))
 
 
-def test_promoted_and_returning_sides_get_the_promoted_prior(seasons):
-    assert seasons.loc[2, "away_season_ppg"] == pytest.approx(1.0)  # W, promoted
-    assert seasons.loc[3, "home_season_ppg"] == pytest.approx((0 + 5 * 1.0) / (1 + 5))
-    assert seasons.loc[4, "home_season_ppg"] == pytest.approx(1.0)  # Y, back after a season away
-
-
-def test_returning_side_starts_a_fresh_spell_but_continuing_side_keeps_its_history(seasons):
-    y_back = seasons.loc[4]
-    assert y_back[["home_ppg_last5", "home_days_rest"]].isna().all()
-    assert y_back["away_ppg_last5"] == pytest.approx(2.0)  # X: 3, 1, 3, 1 across two seasons
-    assert y_back["away_days_rest"] == 357
+def test_first_season_is_flagged_burn_in_and_kept(seasons):
+    assert seasons["burn_in"].tolist() == [True, True, False, False]
