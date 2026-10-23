@@ -57,7 +57,10 @@ These rules apply for the whole project. If a rule blocks something, stop and as
   last season's teams go to 1500 + carryover * (r - 1500); anyone else starts at promoted_start.
   K and home_adv are not tuned yet.
 - `src/features.py`: long table (one row per team per match), groupby team, `shift(1)` before
-  `rolling`, `min_periods=3`, windows cross seasons. Last 5 and 10: points, gf, ga, shots_for,
+  `rolling`, `min_periods=3`, windows cross seasons, except that a gap of more than 200 days since
+  the team's previous match starts a new spell (rolling restarts, days_rest NaN, last_season_ppg
+  1.0). Real gaps: at most 107 days within a run of seasons, at least 384 after a missed season.
+  Last 5 and 10: points, gf, ga, shots_for,
   shots_against, sot_for. Last 5 at this venue: points, gf, ga (`*_venue_last5`). `days_rest`
   capped at 14. `season_ppg` = (5 * last_season_ppg + points_so_far) / (5 + games_so_far),
   last_season_ppg 1.0 for promoted teams and the first season.

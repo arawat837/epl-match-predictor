@@ -17,13 +17,36 @@ DUEL_ROWS = [
     ("2005-09-30", "B", "A", 2, 2),  # 20 days after the last match
     ("2005-10-07", "A", "B", 0, 0),
 ]
-# X plays both seasons, Y only the first, W is promoted for the second.
+# X plays both seasons, Y only the first, W is promoted for the second. The first season's
+# matches are in May so X's summer break (98 days) stays inside one spell.
 SEASON_ROWS = [
-    ("2005-08-13", "X", "Y", 1, 0),
-    ("2005-08-20", "Y", "X", 1, 1),
+    ("2006-05-06", "X", "Y", 1, 0),
+    ("2006-05-13", "Y", "X", 1, 1),
     ("2006-08-19", "X", "W", 2, 0),
     ("2006-08-26", "W", "X", 0, 0),
 ]
+
+
+# R plays 2005-06, misses 2006-07 (469 days out) and returns in 2007-08. S plays every
+# season with normal breaks: 105-day summers and in-season gaps up to 140 days.
+SPELL_ROWS = [
+    ("2006-04-15", "R", "S", 1, 0),
+    ("2006-04-22", "S", "R", 1, 1),
+    ("2006-04-29", "R", "S", 2, 0),
+    ("2006-05-06", "S", "R", 0, 1),
+    ("2006-08-19", "S", "T", 2, 0),
+    ("2007-01-06", "T", "S", 1, 1),
+    ("2007-05-05", "S", "T", 1, 0),
+    ("2007-08-18", "R", "S", 0, 0),  # R's return
+    ("2007-08-25", "S", "R", 1, 0),
+    ("2007-09-01", "R", "S", 2, 2),
+    ("2007-09-15", "S", "R", 0, 0),
+]
+
+
+@pytest.fixture
+def spell(make_matches) -> pd.DataFrame:
+    return build_features(make_matches(SPELL_ROWS))
 
 
 @pytest.fixture
@@ -98,3 +121,34 @@ def test_promoted_team_uses_1_point_per_game(seasons):
 
 def test_first_season_is_flagged_burn_in_and_kept(seasons):
     assert seasons["burn_in"].tolist() == [True, True, False, False]
+
+
+def test_team_back_after_a_missed_season_starts_a_new_spell(spell):
+    r_returns = spell.loc[7]
+    assert r_returns[["home_points_last5", "home_points_last10", "home_points_venue_last5",
+                      "home_shots_for_last5", "home_days_rest"]].isna().all()
+    assert r_returns["home_season_ppg"] == pytest.approx(1.0)  # last_season_ppg 1.0, no games yet
+
+
+def test_new_spell_rolling_waits_for_three_matches_in_the_spell(spell):
+    assert math.isnan(spell.loc[9, "home_points_last5"])  # R: 2 matches since returning
+    assert spell.loc[10, "away_points_last5"] == pytest.approx(2 / 3)  # R: 1, 0, 1; not 3, 3 from before
+    assert math.isnan(spell.loc[10, "away_points_venue_last5"])  # R: 1 away match since returning
+
+
+def test_summer_breaks_and_long_in_season_gaps_keep_the_spell(spell):
+    assert spell.loc[4, "home_points_last5"] == pytest.approx(0.25)  # S across summer: 0, 1, 0, 0
+    assert spell.loc[4, "home_days_rest"] == 14
+    s_away = spell.loc[7]
+    assert s_away["away_points_last5"] == pytest.approx(7 / 5)  # S: 0, 0, 3, 1, 3
+    assert s_away["away_days_rest"] == 14
+    assert s_away["away_season_ppg"] == pytest.approx(7 / 3)  # S last season: 3, 1, 3
+
+
+def test_spell_breaks_only_when_the_gap_exceeds_200_days(make_matches):
+    start = pd.Timestamp("2005-08-13")
+    dates = [start, start + pd.Timedelta(days=150), start + pd.Timedelta(days=350),
+             start + pd.Timedelta(days=551)]  # gaps of 150, 200 and 201 days
+    features = build_features(make_matches([(day.strftime("%Y-%m-%d"), "A", "B", 1, 0) for day in dates]))
+    assert features.loc[[1, 2], "home_days_rest"].tolist() == [14, 14]
+    assert math.isnan(features.loc[3, "home_days_rest"])
