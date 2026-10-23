@@ -17,7 +17,10 @@ These rules apply for the whole project. If a rule blocks something, stop and as
   writes `reports/baseline_metrics.csv`, exits 1 if the leakage alarm fires)
 - Build features: `.venv\Scripts\python -m scripts.build_features` (evaluation seasons only,
   writes `data/processed/features.parquet`, prints top/bottom Elo). Rebuild after changing feature code.
-- Tests: `.venv\Scripts\python -m pytest` (about 30 s; `tests/test_leakage.py` is most of it)
+- Score models: `.venv\Scripts\python -m scripts.evaluate_models` (baselines + three models,
+  writes `reports/model_metrics.csv` and `reports/xgb_feature_importance.png/.csv`, exits 1 if
+  the leakage tripwire fires)
+- Tests: `.venv\Scripts\python -m pytest` (about a minute; leakage and model fold tests are most of it)
 
 ## Data leakage rules (non-negotiable)
 - Never use random `train_test_split` or shuffled K-fold. Every split is by date.
@@ -48,7 +51,8 @@ These rules apply for the whole project. If a rule blocks something, stop and as
   (both in `src/config.py`). Load data for evaluation only via `splits.load_evaluation_matches`.
 - A predictor is `f(train, test) -> DataFrame[H, D, A]` indexed like `test`. It sees the test
   season only through `evaluate.pre_match_view` (goals, result and match stats removed).
-- Log loss is not clipped: a 0/1 forecast (always home) scores infinity. Accuracy ties go to H.
+- Log loss is not clipped: a 0/1 forecast (always home) scores infinity internally and is
+  reported as n/a (judge it on RPS and accuracy). Accuracy ties go to H.
 
 ## Features (user's exact spec; don't substitute a different design)
 - `src/elo.py`, `EloParams(K=20, home_adv=80, start=1500, promoted_start=1450, carryover=0.75)`.
@@ -69,6 +73,21 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 - `tests/test_leakage.py` rebuilds 50 random matches from rows dated strictly before them (plus
   the match itself with its own stats scrambled) and requires identical features.
 
+## Models (`src/models.py`, untuned)
+- Model table (`src/dataset.py`): evaluation matches joined one-to-one with features.parquet,
+  burn-in rows dropped from training and evaluation. Inputs are every non-match column (54);
+  goals, results, match stats and odds are never inputs.
+- `elo_only`: multinomial LogisticRegression on elo_diff. `LogisticModel`: all features in a
+  Pipeline(SimpleImputer(median), StandardScaler, LogisticRegression), fitted per training window.
+- `XGBoostModel`: multi:softprob, max_depth 3, lr 0.04, subsample/colsample 0.8, random_state 0;
+  early stopping (50 rounds, max 600 trees) on the training window's last season, then refit on
+  the whole window with that tree count. Its probabilities are float32.
+- `tests/test_models.py` checks every fold: chronology, no burn-in/holdout, imputer and scaler
+  statistics from the training window only, early-stopping season, valid probabilities, and
+  identical results on a re-run.
+- Current result (2015-16 to 2024-25): no model beats the bookmaker (pooled log loss 0.954 vs
+  0.974-0.976); XGBoost does not beat Elo-only.
+
 ## Metrics and reporting
 - Report log loss and ranked probability score (RPS, outcome order H, D, A) first; accuracy second.
 - Every result is shown next to baselines on the same matches:
@@ -76,9 +95,12 @@ These rules apply for the whole project. If a rule blocks something, stop and as
   and bookmaker implied probabilities (margin removed).
 - Report per season and pooled across the walk-forward seasons.
 
-## Leakage alarm
-- If accuracy exceeds 58% on any evaluation, stop. Do not continue or tune further.
-  Audit for leakage, report findings to the user, and wait.
+## Leakage tripwire
+- Leakage tripwire: stop and audit if pooled accuracy across all test seasons exceeds 58%, or if
+  any model's pooled log loss beats the bookmaker baseline. Single-season accuracy above 58% is
+  expected in seasons where the bookmaker itself exceeds it.
+- When it fires: do not continue or tune further. Audit for leakage, report findings to the
+  user, and wait. `evaluate.leakage_alarms` implements it; scripts exit 1 when it fires.
 
 ## Code style
 - Small, single-purpose functions with type hints on every signature.
@@ -127,14 +149,16 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 │   ├── splits.py              # season folds, walk-forward generator, holdout guard
 │   ├── odds.py                # odds -> implied probabilities, margin removal
 │   ├── baselines.py           # uniform, always-home, base-rate, bookmaker baselines
-│   ├── models.py *            # logistic regression and XGBoost wrappers
+│   ├── dataset.py             # matches joined with features, burn-in dropped
+│   ├── models.py              # Elo-only, logistic pipeline and XGBoost predictors
 │   ├── metrics.py             # log loss, RPS, accuracy
-│   ├── evaluate.py            # walk-forward runner, metric tables, 58% leakage alarm
-│   └── plots.py *             # calibration and per-season metric charts
+│   ├── evaluate.py            # walk-forward runner, metric tables, leakage tripwire
+│   └── plots.py               # report figures (feature importance; calibration later)
 ├── scripts/                   # thin CLI entry points
 │   ├── build_dataset.py
 │   ├── evaluate_baselines.py
-│   └── build_features.py
+│   ├── build_features.py
+│   └── evaluate_models.py
 ├── app/
 │   └── streamlit_app.py *     # UI only; calls into src/
 ├── tests/                     # one test module per src module; conftest.py has synthetic seasons

@@ -5,7 +5,9 @@ the test season only through pre_match_view, so goals, result and match stats ca
 """
 
 from collections.abc import Callable, Iterable, Mapping
+from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from src.data import POST_MATCH_COLUMNS
@@ -21,8 +23,10 @@ METRIC_TITLES = {
     "rps": "Ranked probability score (lower is better)",
     "accuracy": "Accuracy (higher is better)",
 }
-LEAKAGE_ALARM_ACCURACY = 0.58
+TRIPWIRE_POOLED_ACCURACY = 0.58
+BOOKMAKER = "bookmaker"
 AVERAGE = "average"
+NOT_AVAILABLE = "n/a"
 
 
 def pre_match_view(matches: pd.DataFrame) -> pd.DataFrame:
@@ -65,8 +69,31 @@ def with_average(table: pd.DataFrame) -> pd.DataFrame:
 
 
 def leakage_alarms(table: pd.DataFrame) -> pd.DataFrame:
-    """Rows whose accuracy exceeds the leakage threshold (CLAUDE.md: stop and audit)."""
-    return table[table["accuracy"] > LEAKAGE_ALARM_ACCURACY]
+    """Leakage tripwire (CLAUDE.md): pooled rows where accuracy exceeds 58%, or where a
+    predictor's log loss beats the bookmaker's. Single seasons above 58% don't count."""
+    scores = pooled(table[table["season"] != AVERAGE])
+    too_accurate = scores["accuracy"] > TRIPWIRE_POOLED_ACCURACY
+    beats_bookmaker = pd.Series(False, index=scores.index)
+    if BOOKMAKER in set(scores["predictor"]):
+        bookmaker_log_loss = scores.loc[scores["predictor"] == BOOKMAKER, "log_loss"].iloc[0]
+        beats_bookmaker = (scores["predictor"] != BOOKMAKER) & (scores["log_loss"] < bookmaker_log_loss)
+    reasons = [", ".join(reason for reason, hit in [
+        (f"pooled accuracy above {TRIPWIRE_POOLED_ACCURACY:.0%}", accurate),
+        ("pooled log loss beats the bookmaker", beats)] if hit)
+        for accurate, beats in zip(too_accurate, beats_bookmaker)]
+    return scores.assign(reason=reasons)[too_accurate | beats_bookmaker]
+
+
+def reportable(table: pd.DataFrame) -> pd.DataFrame:
+    """Log loss of a 0/1 forecast (always home) is infinite; report it as missing (n/a)."""
+    return table.assign(log_loss=table["log_loss"].replace(np.inf, np.nan))
+
+
+def save_table(table: pd.DataFrame, path: Path) -> Path:
+    """Write the metrics table to CSV with n/a for undefined log loss."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    reportable(table).to_csv(path, index=False, na_rep=NOT_AVAILABLE)
+    return path
 
 
 def metric_table(table: pd.DataFrame, metric: str) -> pd.DataFrame:
@@ -75,12 +102,31 @@ def metric_table(table: pd.DataFrame, metric: str) -> pd.DataFrame:
     return wide.loc[table["season"].unique(), table["predictor"].unique()]
 
 
-def format_report(table: pd.DataFrame) -> str:
-    """Text report: one season-by-predictor table per metric, then any leakage alarm."""
-    sections = [f"{METRIC_TITLES[metric]}\n{metric_table(table, metric).to_string(float_format='{:.4f}'.format)}"
-                for metric in METRICS]
+def format_table(table: pd.DataFrame) -> str:
+    """One table, a row per (season, predictor): each season's predictors side by side,
+    the average block last, metrics in reporting order."""
+    in_order = reportable(table).assign(
+        season=pd.Categorical(table["season"], categories=table["season"].unique(), ordered=True),
+        predictor=pd.Categorical(table["predictor"], categories=table["predictor"].unique(), ordered=True),
+    ).sort_values(["season", "predictor"])
+    columns = ["season", "predictor", "matches", *METRICS]
+    return in_order[columns].to_string(index=False, float_format="{:.4f}".format, na_rep=NOT_AVAILABLE)
+
+
+def format_alarms(table: pd.DataFrame) -> str | None:
+    """The tripwire message, or None if it didn't fire."""
     alarms = leakage_alarms(table)
-    if not alarms.empty:
-        sections.append(f"LEAKAGE ALARM: accuracy above {LEAKAGE_ALARM_ACCURACY:.0%}. "
-                        f"Stop and audit before continuing.\n{alarms.to_string(index=False)}")
-    return "\n\n".join(sections)
+    if alarms.empty:
+        return None
+    rows = reportable(alarms).to_string(index=False, float_format="{:.4f}".format, na_rep=NOT_AVAILABLE)
+    return f"LEAKAGE TRIPWIRE: stop and audit before continuing.\n{rows}"
+
+
+def format_report(table: pd.DataFrame) -> str:
+    """Text report: one season-by-predictor table per metric, then the tripwire if it fired."""
+    readable = reportable(table)
+    sections = [f"{METRIC_TITLES[metric]}\n"
+                f"{metric_table(readable, metric).to_string(float_format='{:.4f}'.format, na_rep=NOT_AVAILABLE)}"
+                for metric in METRICS]
+    alarm = format_alarms(table)
+    return "\n\n".join([*sections, alarm] if alarm else sections)
