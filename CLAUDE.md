@@ -5,9 +5,15 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 
 ## Stack and environment
 - Python 3.11+ (use `py -3.12`; `python` is not on PATH on this machine).
-- Libraries: pandas, scikit-learn, xgboost, matplotlib, streamlit, pytest. Nothing else without asking.
+- Libraries: pandas, pyarrow (parquet), scikit-learn, xgboost, matplotlib, streamlit, pytest.
+  Nothing else without asking.
 - Always work in the project venv: `py -3.12 -m venv .venv`, then `.venv\Scripts\Activate.ps1`.
 - All dependencies pinned in `requirements.txt`. Add a package there before importing it.
+
+## Commands (from the project root)
+- Build data: `.venv\Scripts\python -m scripts.build_dataset` (downloads, writes
+  `data/processed/matches.parquet`, prints the quality report, exits 1 if a check fails)
+- Tests: `.venv\Scripts\python -m pytest`
 
 ## Data leakage rules (non-negotiable)
 - Never use random `train_test_split` or shuffled K-fold. Every split is by date.
@@ -27,6 +33,8 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 - The latest complete season is the final holdout: currently 2025-26.
 - Do not load, train on, tune on, evaluate on or plot the holdout until the user says so.
   `splits.py` enforces this and raises unless the holdout is explicitly unlocked.
+- Exception: ingestion and the integrity checks in `src/quality.py` (row counts, missing
+  values, duplicates, dates) cover every season. Never add outcome or odds statistics there.
 - Matches after the holdout (the in-progress 2026-27 season) are also out of bounds for evaluation.
 
 ## Metrics and reporting
@@ -42,58 +50,59 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 
 ## Code style
 - Small, single-purpose functions with type hints on every signature.
-- One module per concern under `src/epl_predictor/`. Notebooks and scripts hold no logic,
-  they only call into `src/`.
+- One module per concern under `src/`, imported as `from src.<module> import ...`; run
+  everything from the project root. Notebooks and scripts hold no logic, they only call into `src/`.
 - Tests in `tests/` with pytest. Every feature gets a test proving it uses only earlier dates.
 - Commit after each stage, with the stage named in the message.
 
 ## Stages
 0. Rules and layout (this file)
-1. Environment: venv, requirements.txt, pyproject.toml
-2. Data: ingest and clean season CSVs into one match table
-3. Evaluation harness: splits, metrics, baselines, walk-forward runner (baselines scored first)
-4. Features: rolling form, Elo, leakage tests
-5. Models: multinomial logistic regression, then XGBoost
-6. Reporting: metric tables, calibration and per-season plots
-7. Streamlit app
-8. Holdout evaluation (only when the user says so)
+1. Data: environment, download and clean season CSVs into one match table, quality report
+2. Evaluation harness: splits, metrics, baselines, walk-forward runner (baselines scored first)
+3. Features: rolling form, Elo, leakage tests
+4. Models: multinomial logistic regression, then XGBoost
+5. Reporting: metric tables, calibration and per-season plots
+6. Streamlit app
+7. Holdout evaluation (only when the user says so)
 
-## Layout
-Data source: football-data.co.uk EPL season CSVs (results, match stats, pre-match odds), from 2005-06.
+## Data
+- Source: football-data.co.uk EPL files, `mmz4281/{code}/E0.csv`, 2005-06 to the current season.
+- `data/processed/matches.parquet` columns: date, season ("2025-26"), home, away, FTHG, FTAG,
+  result (H/D/A), HS, AS, HST, AST, odds_home/draw/away, odds_source.
+- Odds: Bet365 first, then Pinnacle, other books, market average. All three prices for a
+  match come from one bookmaker; `odds_source` says which.
+- Team names: full club names via `TEAM_NAMES` in `src/teams.py`. An unmapped name raises;
+  add newly promoted clubs there.
 
+## Layout (planned modules marked *)
 ```
 ├── CLAUDE.md
-├── README.md                  # how to set up and run
 ├── requirements.txt           # pinned deps
-├── pyproject.toml             # makes src/ installable (pip install -e .) + pytest config
+├── pyproject.toml             # pytest config (puts the project root on the path)
 ├── .gitignore
 ├── data/                      # contents gitignored
-│   ├── raw/                   # untouched per-season CSVs
-│   └── processed/             # cleaned match table, feature tables
+│   ├── raw/                   # cached per-season CSVs, E0_{code}.csv
+│   └── processed/             # matches.parquet, later feature tables
 ├── src/
-│   └── epl_predictor/
-│       ├── __init__.py
-│       ├── config.py          # paths, season range, HOLDOUT_SEASON, constants
-│       ├── ingest.py          # download / load raw season files
-│       ├── clean.py           # column/team-name/date normalisation -> match table
-│       ├── rolling.py         # per-team shifted rolling form stats
-│       ├── elo.py             # date-ordered Elo ratings
-│       ├── features.py        # assembles the pre-match feature matrix
-│       ├── splits.py          # season folds, walk-forward generator, holdout guard
-│       ├── odds.py            # odds -> implied probabilities, margin removal
-│       ├── baselines.py       # uniform, base-rate, bookmaker baselines
-│       ├── models.py          # logistic regression and XGBoost wrappers
-│       ├── metrics.py         # log loss, RPS, accuracy, comparison table
-│       ├── evaluate.py        # walk-forward runner + 58% leakage alarm
-│       └── plots.py           # calibration and per-season metric charts
-├── scripts/                   # thin CLI entry points (build_dataset.py, run_walkforward.py)
+│   ├── config.py              # paths and constants
+│   ├── seasons.py             # season start year / code / label helpers
+│   ├── teams.py               # team-name standardisation
+│   ├── data.py                # download_epl, cleaning, build matches.parquet
+│   ├── quality.py             # integrity checks and the data-quality report
+│   ├── rolling.py *           # per-team shifted rolling form stats
+│   ├── elo.py *               # date-ordered Elo ratings
+│   ├── features.py *          # assembles the pre-match feature matrix
+│   ├── splits.py *            # season folds, walk-forward generator, holdout guard
+│   ├── odds.py *              # odds -> implied probabilities, margin removal
+│   ├── baselines.py *         # uniform, base-rate, bookmaker baselines
+│   ├── models.py *            # logistic regression and XGBoost wrappers
+│   ├── metrics.py *           # log loss, RPS, accuracy, comparison table
+│   ├── evaluate.py *          # walk-forward runner + 58% leakage alarm
+│   └── plots.py *             # calibration and per-season metric charts
+├── scripts/
+│   └── build_dataset.py       # thin CLI entry points
 ├── app/
-│   └── streamlit_app.py       # UI only; calls into src/
-├── tests/
-│   ├── test_clean.py
-│   ├── test_rolling.py        # leakage tests: shifted, strictly-earlier dates
-│   ├── test_elo.py
-│   ├── test_splits.py         # no date overlap, holdout guard raises
-│   └── test_metrics.py        # RPS / log loss against hand-computed values
-└── reports/                   # generated tables and figures (tracked)
+│   └── streamlit_app.py *     # UI only; calls into src/
+├── tests/                     # one test module per src module; conftest.py has synthetic seasons
+└── reports/ *                 # generated tables and figures (tracked)
 ```
