@@ -6,6 +6,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 RAW_DIR = PROJECT_ROOT / "data" / "raw"
 PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 MATCHES_PATH = PROCESSED_DIR / "matches.parquet"
+FEATURES_PATH = PROCESSED_DIR / "features.parquet"
 REPORTS_DIR = PROJECT_ROOT / "reports"
 
 FIRST_SEASON = 2005  # start year of 2005-06
