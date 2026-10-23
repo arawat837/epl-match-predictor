@@ -28,15 +28,20 @@ def one_hot(outcomes: pd.Series) -> np.ndarray:
     return (outcomes.to_numpy(dtype=str)[:, None] == np.array(OUTCOMES)).astype(float)
 
 
-def log_loss(probabilities: pd.DataFrame, outcomes: pd.Series) -> float:
-    """Mean negative natural log of the probability given to what happened.
+def log_losses(probabilities: pd.DataFrame, outcomes: pd.Series) -> pd.Series:
+    """Per match: negative natural log of the probability given to what happened.
 
     Not clipped: a forecast that gave the observed outcome zero probability scores infinity.
     """
     check_forecasts(probabilities, outcomes)
     observed = (probabilities.to_numpy(dtype=float) * one_hot(outcomes)).sum(axis=1)
     with np.errstate(divide="ignore"):
-        return float(-np.log(observed).mean())
+        return pd.Series(-np.log(observed), index=probabilities.index)
+
+
+def log_loss(probabilities: pd.DataFrame, outcomes: pd.Series) -> float:
+    """Mean of log_losses over the matches."""
+    return float(log_losses(probabilities, outcomes).mean())
 
 
 def ranked_probability_score(probabilities: pd.DataFrame, outcomes: pd.Series) -> float:

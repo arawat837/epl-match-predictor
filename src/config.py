@@ -13,4 +13,5 @@ FIRST_SEASON = 2005  # start year of 2005-06
 MATCHES_PER_SEASON = 380
 
 FIRST_TEST_SEASON = "2015-16"  # first walk-forward test season
+FIRST_REPORTING_SEASON = "2020-21"  # Stage 6: earlier test seasons tune, this one onward reports
 HOLDOUT_SEASON = "2025-26"  # final holdout; locked until the user releases it

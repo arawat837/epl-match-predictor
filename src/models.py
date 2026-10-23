@@ -1,7 +1,8 @@
 """Model predictors for the walk-forward harness: (train, test) -> H/D/A probabilities.
 
 Each model reads only the columns it is given, is fitted on the training window alone,
-and is refitted from scratch for every test season. Nothing here is tuned.
+and is refitted from scratch for every test season. Defaults are the untuned Stage 5
+settings; src/tuning.py passes tuned ones.
 """
 
 from dataclasses import dataclass, field
@@ -51,15 +52,16 @@ def elo_only(train: pd.DataFrame, test: pd.DataFrame) -> pd.DataFrame:
 
 @dataclass
 class LogisticModel:
-    """Logistic regression on every feature in a Pipeline whose median imputer and scaler
+    """L2 logistic regression on `columns` in a Pipeline whose median imputer and scaler
     are fitted on the training window only. Keeps each fitted pipeline by test season."""
 
     columns: list[str]
+    C: float = 1.0
     fitted: dict[str, Pipeline] = field(default_factory=dict)
 
     def __call__(self, train: pd.DataFrame, test: pd.DataFrame) -> pd.DataFrame:
         pipeline = make_pipeline(SimpleImputer(strategy="median"), StandardScaler(),
-                                 LogisticRegression(max_iter=MAX_ITER))
+                                 LogisticRegression(C=self.C, max_iter=MAX_ITER))
         self.fitted[test["season"].iloc[0]] = pipeline
         return fit_predict(pipeline, self.columns, train, test)
 
@@ -69,11 +71,12 @@ def stopping_season(train: pd.DataFrame) -> str:
     return train["season"].max()
 
 
-def early_stopping_tree_count(train: pd.DataFrame, columns: list[str]) -> int:
+def early_stopping_tree_count(train: pd.DataFrame, columns: list[str],
+                              params: dict[str, object] = XGB_PARAMS) -> int:
     """Trees to use: fit on all but the training window's last season, stop early on that season."""
     last = stopping_season(train)
     fit_part, stop_part = train[train["season"] < last], train[train["season"] == last]
-    model = XGBClassifier(**XGB_PARAMS, n_estimators=MAX_TREES, early_stopping_rounds=EARLY_STOPPING_ROUNDS)
+    model = XGBClassifier(**params, n_estimators=MAX_TREES, early_stopping_rounds=EARLY_STOPPING_ROUNDS)
     model.fit(fit_part[columns], encode(fit_part["result"]),
               eval_set=[(stop_part[columns], encode(stop_part["result"]))], verbose=False)
     return model.best_iteration + 1
@@ -85,13 +88,14 @@ class XGBoostModel:
     training window. Keeps each fitted model by test season for feature importance."""
 
     columns: list[str]
+    params: dict[str, object] = field(default_factory=lambda: dict(XGB_PARAMS))
     fitted: dict[str, XGBClassifier] = field(default_factory=dict)
     trees: dict[str, int] = field(default_factory=dict)
     stopping_seasons: dict[str, str] = field(default_factory=dict)
 
     def __call__(self, train: pd.DataFrame, test: pd.DataFrame) -> pd.DataFrame:
-        trees = early_stopping_tree_count(train, self.columns)
-        model = XGBClassifier(**XGB_PARAMS, n_estimators=trees)
+        trees = early_stopping_tree_count(train, self.columns, self.params)
+        model = XGBClassifier(**self.params, n_estimators=trees)
         model.fit(train[self.columns], encode(train["result"]))
         season = test["season"].iloc[0]
         self.fitted[season], self.trees[season] = model, trees

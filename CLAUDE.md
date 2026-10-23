@@ -20,6 +20,8 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 - Score models: `.venv\Scripts\python -m scripts.evaluate_models` (baselines + three models,
   writes `reports/model_metrics.csv` and `reports/xgb_feature_importance.png/.csv`, exits 1 if
   the leakage tripwire fires)
+- Stage 6 tuning: `.venv\Scripts\python -m scripts.tune_models` (tune on 2015-16..2019-20,
+  report once on 2020-21..2024-25, writes `reports/stage6_*.csv`, exits 1 if the tripwire fires)
 - Tests: `.venv\Scripts\python -m pytest` (about a minute; leakage and model fold tests are most of it)
 
 ## Data leakage rules (non-negotiable)
@@ -88,6 +90,19 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 - Current result (2015-16 to 2024-25): no model beats the bookmaker (pooled log loss 0.954 vs
   0.974-0.976); XGBoost does not beat Elo-only.
 
+## Tuning protocol (Stage 6, `src/tuning.py`)
+- Tuning seasons 2015-16..2019-20 choose every setting; the choice is frozen and scored once on
+  the reporting seasons 2020-21..2024-25 (`FIRST_REPORTING_SEASON`). Never evaluate grid
+  candidates on reporting seasons. Each season's model still trains only on earlier matches.
+- Reporting seasons were already seen in Stage 5, so they are not a clean test; only the
+  holdout is.
+- Frozen choices: Elo K=15, home_adv=50, carryover=0.9 (grid edge for home_adv and carryover;
+  the surface is flat, top 5 within 0.0003). Compact logistic C=0.03 on `COMPACT_FEATURES`.
+  These apply via `tuning.with_elo`; features.parquet still holds the default Elo.
+- Result on reporting seasons (log loss): original Elo-only 0.9823, tuned Elo-only 0.9814,
+  compact logistic 0.9818, compact XGBoost 0.9874, bookmaker 0.9581. No gain beats noise
+  (all within 1 standard error of a paired per-match difference).
+
 ## Metrics and reporting
 - Report log loss and ranked probability score (RPS, outcome order H, D, A) first; accuracy second.
 - Every result is shown next to baselines on the same matches:
@@ -116,9 +131,10 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 3. Features, first design (superseded by stage 4)
 4. Features to the user's spec: Elo with season carry-over, form, rest, season PPG, leakage tests
 5. Models: multinomial logistic regression, then XGBoost
-6. Reporting: metric tables, calibration and per-season plots
-7. Streamlit app
-8. Holdout evaluation (only when the user says so)
+6. Honest tuning: Elo grid, compact logistic, compact XGBoost (tune/report split)
+7. Reporting: metric tables, calibration and per-season plots
+8. Streamlit app
+9. Holdout evaluation (only when the user says so)
 
 ## Data
 - Source: football-data.co.uk EPL files, `mmz4281/{code}/E0.csv`, 2005-06 to the current season.
@@ -151,6 +167,7 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 │   ├── baselines.py           # uniform, always-home, base-rate, bookmaker baselines
 │   ├── dataset.py             # matches joined with features, burn-in dropped
 │   ├── models.py              # Elo-only, logistic pipeline and XGBoost predictors
+│   ├── tuning.py              # Stage 6 tune/report protocol, grids, paired comparison
 │   ├── metrics.py             # log loss, RPS, accuracy
 │   ├── evaluate.py            # walk-forward runner, metric tables, leakage tripwire
 │   └── plots.py               # report figures (feature importance; calibration later)
@@ -158,7 +175,8 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 │   ├── build_dataset.py
 │   ├── evaluate_baselines.py
 │   ├── build_features.py
-│   └── evaluate_models.py
+│   ├── evaluate_models.py
+│   └── tune_models.py
 ├── app/
 │   └── streamlit_app.py *     # UI only; calls into src/
 ├── tests/                     # one test module per src module; conftest.py has synthetic seasons
