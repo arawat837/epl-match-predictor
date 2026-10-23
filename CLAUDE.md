@@ -5,14 +5,16 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 
 ## Stack and environment
 - Python 3.11+ (use `py -3.12`; `python` is not on PATH on this machine).
-- Libraries: pandas, pyarrow (parquet), scikit-learn, xgboost, matplotlib, streamlit, pytest.
-  Nothing else without asking.
+- Libraries: numpy, pandas, pyarrow (parquet), scikit-learn, xgboost, matplotlib, streamlit,
+  pytest. Nothing else without asking.
 - Always work in the project venv: `py -3.12 -m venv .venv`, then `.venv\Scripts\Activate.ps1`.
 - All dependencies pinned in `requirements.txt`. Add a package there before importing it.
 
 ## Commands (from the project root)
 - Build data: `.venv\Scripts\python -m scripts.build_dataset` (downloads, writes
   `data/processed/matches.parquet`, prints the quality report, exits 1 if a check fails)
+- Score baselines: `.venv\Scripts\python -m scripts.evaluate_baselines` (walk-forward,
+  writes `reports/baseline_metrics.csv`, exits 1 if the leakage alarm fires)
 - Tests: `.venv\Scripts\python -m pytest`
 
 ## Data leakage rules (non-negotiable)
@@ -36,6 +38,13 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 - Exception: ingestion and the integrity checks in `src/quality.py` (row counts, missing
   values, duplicates, dates) cover every season. Never add outcome or odds statistics there.
 - Matches after the holdout (the in-progress 2026-27 season) are also out of bounds for evaluation.
+
+## Evaluation harness
+- Walk-forward test seasons: `FIRST_TEST_SEASON` (2015-16) up to, not including, `HOLDOUT_SEASON`
+  (both in `src/config.py`). Load data for evaluation only via `splits.load_evaluation_matches`.
+- A predictor is `f(train, test) -> DataFrame[H, D, A]` indexed like `test`. It sees the test
+  season only through `evaluate.pre_match_view` (goals, result and match stats removed).
+- Log loss is not clipped: a 0/1 forecast (always home) scores infinity. Accuracy ties go to H.
 
 ## Metrics and reporting
 - Report log loss and ranked probability score (RPS, outcome order H, D, A) first; accuracy second.
@@ -92,17 +101,18 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 │   ├── rolling.py *           # per-team shifted rolling form stats
 │   ├── elo.py *               # date-ordered Elo ratings
 │   ├── features.py *          # assembles the pre-match feature matrix
-│   ├── splits.py *            # season folds, walk-forward generator, holdout guard
-│   ├── odds.py *              # odds -> implied probabilities, margin removal
-│   ├── baselines.py *         # uniform, base-rate, bookmaker baselines
+│   ├── splits.py              # season folds, walk-forward generator, holdout guard
+│   ├── odds.py                # odds -> implied probabilities, margin removal
+│   ├── baselines.py           # uniform, always-home, base-rate, bookmaker baselines
 │   ├── models.py *            # logistic regression and XGBoost wrappers
-│   ├── metrics.py *           # log loss, RPS, accuracy, comparison table
-│   ├── evaluate.py *          # walk-forward runner + 58% leakage alarm
+│   ├── metrics.py             # log loss, RPS, accuracy
+│   ├── evaluate.py            # walk-forward runner, metric tables, 58% leakage alarm
 │   └── plots.py *             # calibration and per-season metric charts
-├── scripts/
-│   └── build_dataset.py       # thin CLI entry points
+├── scripts/                   # thin CLI entry points
+│   ├── build_dataset.py
+│   └── evaluate_baselines.py
 ├── app/
 │   └── streamlit_app.py *     # UI only; calls into src/
 ├── tests/                     # one test module per src module; conftest.py has synthetic seasons
-└── reports/ *                 # generated tables and figures (tracked)
+└── reports/                   # generated tables and figures (tracked)
 ```

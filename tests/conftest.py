@@ -1,13 +1,16 @@
 """Shared fixtures: synthetic match tables in the clean matches.parquet format."""
 
+from collections.abc import Callable, Iterable
 from datetime import date, timedelta
 
 import pandas as pd
 import pytest
 
+from src.data import MATCH_COLUMNS, derive_result
 from src.seasons import season_label
 
 COUNT_COLUMNS = ["FTHG", "FTAG", "HS", "AS", "HST", "AST"]
+MatchRow = tuple[str, str, str, int, int]
 
 
 def round_robin(teams: list[str]) -> list[list[tuple[str, str]]]:
@@ -43,3 +46,36 @@ def synthetic_season(start_year: int, rounds: int = 38) -> pd.DataFrame:
 def two_seasons() -> pd.DataFrame:
     """A complete 2005-06 (380 matches) and an in-progress 2006-07 (7 rounds, 70 matches)."""
     return pd.concat([synthetic_season(2005), synthetic_season(2006, rounds=7)], ignore_index=True)
+
+
+@pytest.fixture
+def make_seasons() -> Callable[..., pd.DataFrame]:
+    """Factory: synthetic seasons for the given start years, stacked in date order."""
+    def make(start_years: Iterable[int], rounds: int = 2) -> pd.DataFrame:
+        return pd.concat([synthetic_season(year, rounds) for year in start_years], ignore_index=True)
+    return make
+
+
+def season_of(day: pd.Timestamp) -> str:
+    """Season label for a date, with seasons turning over on 1 July."""
+    return season_label(day.year if day.month >= 7 else day.year - 1)
+
+
+@pytest.fixture
+def make_matches() -> Callable[[list[MatchRow]], pd.DataFrame]:
+    """Factory: a match table from (date, home, away, home goals, away goals) rows.
+
+    Shots are 10 + goals and shots on target 2 + goals, so they can be checked by hand.
+    """
+    def make(rows: list[MatchRow]) -> pd.DataFrame:
+        matches = pd.DataFrame(rows, columns=["date", "home", "away", "FTHG", "FTAG"])
+        matches["date"] = pd.to_datetime(matches["date"])
+        goals = matches[["FTHG", "FTAG"]].astype("Int64")
+        return matches.assign(
+            season=matches["date"].map(season_of),
+            FTHG=goals["FTHG"], FTAG=goals["FTAG"],
+            result=derive_result(goals["FTHG"], goals["FTAG"]),
+            HS=goals["FTHG"] + 10, AS=goals["FTAG"] + 10, HST=goals["FTHG"] + 2, AST=goals["FTAG"] + 2,
+            odds_home=2.7, odds_draw=3.3, odds_away=2.7, odds_source="B365",
+        )[MATCH_COLUMNS]
+    return make

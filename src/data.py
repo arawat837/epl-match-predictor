@@ -20,6 +20,8 @@ COUNT_COLUMNS = ["FTHG", "FTAG", "HS", "AS", "HST", "AST"]
 ODDS_COLUMNS = ["odds_home", "odds_draw", "odds_away"]
 MATCH_COLUMNS = ["date", "season", "home", "away", *COUNT_COLUMNS[:2], "result",
                  *COUNT_COLUMNS[2:], *ODDS_COLUMNS, "odds_source"]
+# Known only once a match is played: never inputs for that match.
+POST_MATCH_COLUMNS = [*COUNT_COLUMNS, "result"]
 # Optional raw columns; a season without one gets it as all-missing instead of failing.
 OPTIONAL_RAW_COLUMNS = ["FTR", "HS", "AS", "HST", "AST"]
 # Preference order for a match's H/D/A prices: Bet365, then Pinnacle, then other
