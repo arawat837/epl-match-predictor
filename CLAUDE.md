@@ -22,6 +22,8 @@ These rules apply for the whole project. If a rule blocks something, stop and as
   the leakage tripwire fires)
 - Stage 6 tuning: `.venv\Scripts\python -m scripts.tune_models` (tune on 2015-16..2019-20,
   report once on 2020-21..2024-25, writes `reports/stage6_*.csv`, exits 1 if the tripwire fires)
+- Availability audit: `.venv\Scripts\python -m scripts.audit_availability` (FPL archive cached in
+  `data/raw/fpl/`, coverage report, writes `data/processed/availability.parquet`; audit only)
 - Tests: `.venv\Scripts\python -m pytest` (about a minute; leakage and model fold tests are most of it)
 
 ## Data leakage rules (non-negotiable)
@@ -39,6 +41,14 @@ These rules apply for the whole project. If a rule blocks something, stop and as
   cards, half-time score, full-time score, result. They may only feed features for later matches.
 - Scalers, encoders and calibrators are fit on the training fold only.
 - Pre-match bookmaker odds are a baseline. Using them as model features needs explicit approval.
+
+## Prediction time rule
+- PREDICTION TIME RULE: a prediction is made about 1 hour before kickoff. Features may use only:
+  matches dated before the match date; injury/suspension spells that STARTED before the match date;
+  dated market-value snapshots published before the match date; squad lists as of that date. Never
+  use anything from the match itself (minutes, cards, goals, ratings, BPS, injuries starting during
+  it), the FPL xP column (look-ahead bias), or a spell's recorded end date for anything except
+  'unavailable at kickoff'.
 
 ## Final holdout
 - The latest complete season is the final holdout: currently 2025-26.
@@ -103,6 +113,26 @@ These rules apply for the whole project. If a rule blocks something, stop and as
   compact logistic 0.9818, compact XGBoost 0.9874, bookmaker 0.9581. No gain beats noise
   (all within 1 standard error of a paired per-match difference).
 
+## Availability data (Stage 7 audit; not in features.parquet or any model)
+- Transfermarkt: do not scrape or use. Its terms (clause 11.1) forbid access by bots, spiders,
+  screen scraping or other automated processes and forbid using its content to train AI/ML.
+  That rules out Transfermarkt market values and injury logs, including third-party copies.
+- FPL archive (vaastav/Fantasy-Premier-League): 2016-17 to 2024-25 only (no 2015-16; holdout
+  seasons never downloaded). Every match has player rows for both sides. Rows are per match
+  (point-in-time); `players_raw.csv` status/news/team are end-of-season snapshots, never use them
+  historically. `team` and `position` columns exist only from 2020-21 (team is derived from the
+  fixture's sides for every season), `starts` only from 2022-23. Never read `xP`.
+- FPL `code` is the persistent player id. FPL team names map to clubs via exact name, then
+  `data/manual/fpl_team_names.csv`, then fuzzy match; minutes-weighted link rate 100% (fails <98%).
+- FPL live API (bootstrap-static) has status, chance_of_playing_next/this_round, news,
+  news_added, removed, team_join_date: current snapshot only, for the future app, never training.
+- `src/availability.py` (all from rows dated strictly before the match; squad = FPL listing for
+  the fixture, identity only): one-match bans (red, or 5/10/15 yellows by team match 19/32/38),
+  top-11 key players over the previous 10 matches, FPL-price squad value, minutes-weighted
+  BPS/ICT over the previous 5. Ban check: 89% of red and 93% of yellow bans match a player who
+  didn't play; 9 of 10 hand-checked bans right (misses: bans served in cups, rescinded reds).
+- No injury source exists; `unavailable_at_kickoff` implements the rule for a future one.
+
 ## Metrics and reporting
 - Report log loss and ranked probability score (RPS, outcome order H, D, A) first; accuracy second.
 - Every result is shown next to baselines on the same matches:
@@ -132,9 +162,10 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 4. Features to the user's spec: Elo with season carry-over, form, rest, season PPG, leakage tests
 5. Models: multinomial logistic regression, then XGBoost
 6. Honest tuning: Elo grid, compact logistic, compact XGBoost (tune/report split)
-7. Reporting: metric tables, calibration and per-season plots
-8. Streamlit app
-9. Holdout evaluation (only when the user says so)
+7. Availability and form data audit (FPL archive; no modelling)
+8. Reporting: metric tables, calibration and per-season plots
+9. Streamlit app
+10. Holdout evaluation (only when the user says so)
 
 ## Data
 - Source: football-data.co.uk EPL files, `mmz4281/{code}/E0.csv`, 2005-06 to the current season.
@@ -151,9 +182,10 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 ├── requirements.txt           # pinned deps
 ├── pyproject.toml             # pytest config (puts the project root on the path)
 ├── .gitignore
-├── data/                      # contents gitignored
-│   ├── raw/                   # cached per-season CSVs, E0_{code}.csv
-│   └── processed/             # matches.parquet, features.parquet
+├── data/
+│   ├── raw/                   # gitignored: E0_{code}.csv, fpl/ archive, fpl_api/ snapshot
+│   ├── processed/             # gitignored: matches, features, availability parquet
+│   └── manual/                # tracked: fpl_team_names.csv overrides
 ├── src/
 │   ├── config.py              # paths and constants
 │   ├── seasons.py             # season start year / code / label helpers
@@ -168,6 +200,10 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 │   ├── dataset.py             # matches joined with features, burn-in dropped
 │   ├── models.py              # Elo-only, logistic pipeline and XGBoost predictors
 │   ├── tuning.py              # Stage 6 tune/report protocol, grids, paired comparison
+│   ├── fpl.py                 # FPL archive download/cache and per-season loading (no xP)
+│   ├── name_maps.py           # FPL team names -> clubs, FPL rows -> matches, link rate
+│   ├── availability.py        # point-in-time bans, key players, squad value, form
+│   ├── audit.py               # Stage 7 coverage report and ban check (audit only)
 │   ├── metrics.py             # log loss, RPS, accuracy
 │   ├── evaluate.py            # walk-forward runner, metric tables, leakage tripwire
 │   └── plots.py               # report figures (feature importance; calibration later)
@@ -176,7 +212,8 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 │   ├── evaluate_baselines.py
 │   ├── build_features.py
 │   ├── evaluate_models.py
-│   └── tune_models.py
+│   ├── tune_models.py
+│   └── audit_availability.py
 ├── app/
 │   └── streamlit_app.py *     # UI only; calls into src/
 ├── tests/                     # one test module per src module; conftest.py has synthetic seasons
