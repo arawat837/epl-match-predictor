@@ -59,11 +59,17 @@ class LogisticModel:
     C: float = 1.0
     fitted: dict[str, Pipeline] = field(default_factory=dict)
 
-    def __call__(self, train: pd.DataFrame, test: pd.DataFrame) -> pd.DataFrame:
+    def fit(self, train: pd.DataFrame, season: str) -> Pipeline:
+        """Fit the pipeline on the training window and keep it under the test season."""
         pipeline = make_pipeline(SimpleImputer(strategy="median"), StandardScaler(),
                                  LogisticRegression(C=self.C, max_iter=MAX_ITER))
-        self.fitted[test["season"].iloc[0]] = pipeline
-        return fit_predict(pipeline, self.columns, train, test)
+        pipeline.fit(train[self.columns], encode(train["result"]))
+        self.fitted[season] = pipeline
+        return pipeline
+
+    def __call__(self, train: pd.DataFrame, test: pd.DataFrame) -> pd.DataFrame:
+        pipeline = self.fit(train, test["season"].iloc[0])
+        return forecast(pipeline.predict_proba(test[self.columns]), test.index)
 
 
 def stopping_season(train: pd.DataFrame) -> str:

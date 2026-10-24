@@ -36,6 +36,45 @@ def plot_importance(importance: pd.Series, path: Path, title: str, subtitle: str
 
 
 OUTCOME_TITLES = {"H": "Home win", "D": "Draw", "A": "Away win"}
+SERIES_2 = "#eb6834"
+
+
+def probability_bars(probabilities: pd.Series, home: str, away: str) -> Figure:
+    """Horizontal bars of the H/D/A probabilities, each labelled at its tip."""
+    labels = [f"{home} win", "Draw", f"{away} win"]
+    values = [float(probabilities[outcome]) for outcome in ("H", "D", "A")]
+    figure = Figure(figsize=(6, 2.2), dpi=150, facecolor=SURFACE)
+    axes = figure.add_axes((0.32, 0.12, 0.6, 0.8), facecolor=SURFACE)
+    positions = list(range(len(labels)))[::-1]
+    axes.barh(positions, values, height=0.45, color=SERIES_1, zorder=2)
+    for position, value in zip(positions, values):
+        axes.text(value + 0.01, position, f"{value:.0%}", va="center", fontsize=9, color=TEXT_SECONDARY)
+    axes.set_yticks(positions, labels)
+    axes.set_xlim(0, 1)
+    axes.xaxis.set_major_formatter(lambda value, _: f"{value:.0%}")
+    axes.grid(axis="x", color=GRID, linewidth=0.8, zorder=0)
+    axes.tick_params(colors=TEXT_SECONDARY, labelsize=8, length=0)
+    axes.tick_params(axis="y", labelcolor=TEXT_PRIMARY, labelsize=9)
+    for spine in axes.spines.values():
+        spine.set_visible(False)
+    return figure
+
+
+def contribution_bars(table: pd.DataFrame, home: str, away: str) -> Figure:
+    """Each feature's contribution to the home-minus-away log-odds: right favours the home side."""
+    shown = table.reindex(table["contribution"].abs().sort_values().index)
+    figure = Figure(figsize=(6, 0.45 * len(shown) + 0.9), dpi=150, facecolor=SURFACE)
+    axes = figure.add_axes((0.36, 0.18, 0.58, 0.72), facecolor=SURFACE)
+    colors = [SERIES_1 if value >= 0 else SERIES_2 for value in shown["contribution"]]
+    axes.barh(shown["feature"], shown["contribution"], height=0.5, color=colors, zorder=2)
+    axes.axvline(0, color=TEXT_SECONDARY, linewidth=0.8, zorder=1)
+    axes.grid(axis="x", color=GRID, linewidth=0.8, zorder=0)
+    axes.tick_params(colors=TEXT_SECONDARY, labelsize=8, length=0)
+    axes.tick_params(axis="y", labelcolor=TEXT_PRIMARY)
+    axes.set_xlabel(f"← favours {away}     log-odds     favours {home} →", fontsize=8, color=TEXT_SECONDARY)
+    for spine in axes.spines.values():
+        spine.set_visible(False)
+    return figure
 
 
 def plot_reliability(table: pd.DataFrame, path: Path, title: str, subtitle: str) -> Path:

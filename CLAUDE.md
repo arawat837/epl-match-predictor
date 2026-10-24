@@ -31,7 +31,11 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 - Holdout (ALREADY RUN ONCE, do not rerun): `.venv\Scripts\python -m scripts.evaluate_holdout --unlock-holdout`
   refuses without the flag, aborts if the config differs from `pre-holdout-config`, and refuses a
   second run without `--rerun-reason` (genuine bug fixes only; never model, feature or parameter changes)
-- Tests: `.venv\Scripts\python -m pytest` (about two minutes; leakage and model fold tests are most of it)
+- Forward log: `.venv\Scripts\python -m scripts.predict_upcoming` (refreshes 2026-27, reads
+  football-data.co.uk `fixtures.csv`, appends to `data/forward/predictions_log.csv`); score it with
+  `.venv\Scripts\python -m scripts.score_forward`. Commit code before logging so the logged hash matches.
+- App: `.venv\Scripts\streamlit run app/app.py` (offline; light theme in `.streamlit/config.toml`)
+- Tests: `.venv\Scripts\python -m pytest` (about three minutes; leakage, model fold and forward tests dominate)
 
 ## Data leakage rules (non-negotiable)
 - Never use random `train_test_split` or shuffled K-fold. Every split is by date.
@@ -63,7 +67,8 @@ These rules apply for the whole project. If a rule blocks something, stop and as
   `splits.py` enforces this and raises unless the holdout is explicitly unlocked.
 - Exception: ingestion and the integrity checks in `src/quality.py` (row counts, missing
   values, duplicates, dates) cover every season. Never add outcome or odds statistics there.
-- Matches after the holdout (the in-progress 2026-27 season) are also out of bounds for evaluation.
+- Matches after the holdout (2026-27) are out of bounds for evaluation and model selection; since
+  Stage 11 they are the forward-test season, used only by the forward log, its scoring and the app.
 
 ## Evaluation harness
 - Walk-forward test seasons: `FIRST_TEST_SEASON` (2015-16) up to, not including, `HOLDOUT_SEASON`
@@ -181,6 +186,21 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 - The holdout is now spent. The config stays frozen; any new model needs a fresh untouched season
   (e.g. 2026-27 once complete) for an unbiased test. Records: `reports/stage10_*`.
 
+## Forward test and app (Stage 11; the model is not changed)
+- `src/forward.py`: the frozen model fitted once on every match before the current season (no
+  refit within it). Fixture features use the Stage 4 code unchanged: the fixture is appended to the
+  played matches before its date with placeholder stats, which never reach its own features.
+- `data/forward/predictions_log.csv` is append-only: never edit or delete rows. Past kickoffs are
+  refused; a logged fixture gets a new row only when its `inputs_hash` changes. The first 9 rows
+  (2026-10-24) were logged before the Stage 11 code was committed, so their `git_commit` is the
+  Stage 10 commit; the code that produced them is in the Stage 11 commit.
+- Scoring uses each played match's latest prediction made before its actual kickoff (football-data
+  Date + Time) against the bookmaker odds in the same results file; below 100 matches it says
+  "too few matches to conclude".
+- `app/app.py` (UI only) with `src/explain.py`: contribution = (w_H - w_A) x standardised feature;
+  intercept + contributions = log(p_H / p_A) exactly. Limits panel and confidence label read the
+  Stage 9/10 reports; no network call anywhere in the app.
+
 ## Metrics and reporting
 - Report log loss and ranked probability score (RPS, outcome order H, D, A) first; accuracy second.
 - Every result is shown next to baselines on the same matches:
@@ -214,7 +234,7 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 8. Availability and form features on an offset model (pre-registered rule; none adopted)
 9. Freeze the final model, calibration test, reliability, confidence analysis
 10. Holdout evaluation (done once; see Holdout result)
-11. Streamlit app
+11. Forward prediction log and Streamlit app
 
 ## Data
 - Source: football-data.co.uk EPL files, `mmz4281/{code}/E0.csv`, 2005-06 to the current season.
@@ -236,7 +256,8 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 ├── data/
 │   ├── raw/                   # gitignored: E0_{code}.csv, fpl/ archive, fpl_api/ snapshot
 │   ├── processed/             # gitignored: matches, features, availability parquet
-│   └── manual/                # tracked: fpl_team_names.csv overrides
+│   ├── manual/                # tracked: fpl_team_names.csv overrides
+│   └── forward/               # tracked: predictions_log.csv (append-only)
 ├── src/
 │   ├── config.py              # paths and constants
 │   ├── seasons.py             # season start year / code / label helpers
@@ -262,6 +283,9 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 │   ├── calibration.py         # temperature scaling fitted on the previous season
 │   ├── confidence.py          # reliability deciles, confidence subsets vs bookmaker
 │   ├── holdout.py             # Stage 10 holdout fold, unlock and frozen-config guards
+│   ├── forward.py             # fixtures, fixture features, append-only log, forward scoring
+│   ├── explain.py             # exact per-feature log-odds contributions
+│   ├── app_support.py         # offline lookups for the app (history, confidence, fixtures)
 │   ├── metrics.py             # log loss, RPS, accuracy
 │   ├── evaluate.py            # walk-forward runner, metric tables, leakage tripwire
 │   └── plots.py               # report figures (feature importance; calibration later)
@@ -274,9 +298,11 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 │   ├── audit_availability.py
 │   ├── evaluate_availability.py
 │   ├── analyse_final_model.py
-│   └── evaluate_holdout.py
+│   ├── evaluate_holdout.py
+│   ├── predict_upcoming.py
+│   └── score_forward.py
 ├── app/
-│   └── streamlit_app.py *     # UI only; calls into src/
+│   └── app.py                 # Streamlit UI only; calls into src/
 ├── tests/                     # one test module per src module; conftest.py has synthetic seasons
 └── reports/                   # generated tables and figures (tracked)
 ```
