@@ -187,6 +187,57 @@ made after any 2026-27 v2 result has been seen voids the pre-registration.
   those of them that have lineup data (missing if fewer than 3 do). The window is not extended back
   to find 10 matches with lineups. The two readings differ only when lineups are missing.
 
+- 2026-10-25, amendment A (approved by the user; written before any injury data was fetched and
+  before any v2 feature was scored). Reason: the user asked to add exponentially weighted form and
+  injury data. Section 2's reasons for leaving injuries out of v2 still hold at v2's prediction time
+  (after the XIs), so injuries go into a separate variant that predicts before lineups. Everything
+  below is fixed now.
+
+  **A1. EWMA form (step 2 of v2).** `points_ewma`: per team, the exponentially weighted mean of
+  league points (3, 1, 0) over the team's earlier matches in the spell, pandas
+  `ewm(span=5, adjust=True, min_periods=3)` applied after `shift(1)`, so a match never counts toward
+  its own value; windows cross seasons within a spell, as in v1. Enters as home_points_ewma,
+  away_points_ewma and points_ewma_diff. "v2+EWMA" is the section 5 offset model with these 3 inputs
+  added to the 9 lineup inputs, lambda chosen again from the same grid on the same tuning seasons
+  (2017-18 to 2019-20), and the same development and verdict windows as v2. Gate D for it: lower
+  pooled tuning log loss than v2.
+
+  **A2. Pre-lineup injury variant ("v2-pre").** Predicts under v1's prediction-time rule (about an
+  hour before kickoff), so it never uses the match's own XI. Base: v1's walk-forward out-of-sample
+  probabilities; offset model as in section 5. Inputs (home_X, away_X, X_diff, 9 in all):
+  - `injured_regulars`: the share of the team's regular XI (section 5's definition, built from
+    earlier matches' lineups) listed by API-Football as missing the fixture. Missing when the regular
+    XI is missing.
+  - `injured_count`: the number of the team's players listed as missing the fixture (0 when none are
+    listed, within seasons API-Football marks as covered for injuries).
+  - `points_ewma` (A1).
+  "Listed as missing" means an API-Football `/injuries` record for that fixture whose type says the
+  player will miss it (API-Football's "Missing Fixture"); records marked as doubtful ("Questionable")
+  are not counted. Source: API-Football only; no scraping.
+  Seasons: injuries are covered from 2020-21, so 2020-21 is history only; the offset for test season
+  S trains on 2020-21 to S-1; lambda is chosen from the section 6 grid on the tuning seasons 2021-22
+  to 2023-24; 2024-25 and 2025-26 are the development check (seen seasons, not a verdict); the
+  verdict model's offset is fitted once on 2020-21 to 2025-26 and frozen with v2's configuration
+  before any 2026-27 result. Verdict season 2026-27, as for v2.
+  Gates, in order: **Gate I (injury lists)**, before any injury feature is scored: on every cached
+  fixture that has both lineups and injury records (the free seasons, 2022-23 to 2024-25), the share
+  of "Missing Fixture" records whose player is in that fixture's starting XI must be at most 2%. A
+  higher share means records were written or edited after kickoff, and v2-pre is dropped. Then
+  Gate L for its features (rebuilds from earlier matches and lineups plus the fixture's own injury
+  list, with the match's own XI and bench removed and its result scrambled; planted leaks: the
+  match's own XI used, the next fixture's injury list used), then Gate D: lower pooled tuning log
+  loss than v1.
+
+  **A3. Verdict with the Holm correction.** Up to three one-sided comparisons on 2026-27, each with D
+  and SE as in section 8 and p = Φ(D / SE): (1) v2 against v1; (2) v2+EWMA against v2; (3) v2-pre
+  against v1. Only comparisons whose variant passed its gates are run; m is their number. Holm:
+  order the p-values from smallest, and declare comparison k an improvement while
+  p(k) ≤ 0.05 / (m - k + 1); stop at the first that is not. This replaces section 8's unadjusted
+  "improves" rule (it is stricter). "Worse" (D / SE > 1.645) stays descriptive. Secondary results and
+  the tripwire in section 8 apply to every variant.
+  Costs: injury lists are one request per season (more if paginated), so the free seasons are
+  affordable now; 2020-21, 2021-22, 2025-26 and 2026-27 need the paid plan already required for v2.
+
 ## Sources
 
 - API-Football, [new injuries endpoint](https://www.api-football.com/news/post/new-endpoint-injuries)
