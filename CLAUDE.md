@@ -35,6 +35,8 @@ These rules apply for the whole project. If a rule blocks something, stop and as
   football-data.co.uk `fixtures.csv`, appends to `data/forward/predictions_log.csv`); score it with
   `.venv\Scripts\python -m scripts.score_forward`. Commit code before logging so the logged hash matches.
 - App: `.venv\Scripts\streamlit run app/app.py` (offline; light theme in `.streamlit/config.toml`)
+- Commits: in Windows PowerShell 5.1, write commit messages containing double quotes to a file and use
+  `git commit -F <file>`; `-m` mangles the quotes.
 - Tests: `.venv\Scripts\python -m pytest` (about three minutes; leakage, model fold and forward tests dominate)
 
 ## Data leakage rules (non-negotiable)

@@ -1,0 +1,14 @@
+{
+  "first_batch_predictions": 9,
+  "first_logged_at_utc": "2026-10-24T00:53:30+00:00",
+  "logged_git_commit": "9ba08a24b29e5273aa2e5536e1192208647578c1",
+  "code_commit": "84320e1",
+  "code_committed_at_utc": "2026-10-24T01:01:52+00:00",
+  "first_kickoff_utc": "2026-10-24T11:30:00+00:00",
+  "forward_season": "2026-27",
+  "recompute_code_commit": "84320e1",
+  "recompute_fixtures": 9,
+  "recompute_inputs_unchanged": true,
+  "recompute_max_abs_difference": 0.0,
+  "sources": "prediction log data/forward/predictions_log.csv; git log/rev-parse for the commit; recompute by running the code exported with git archive at the commit, offline, on the saved data"
+}
