@@ -234,9 +234,10 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 ## v2 lineup model (pre-registered plan; nothing built)
 - Plan: `docs/v2_lineup_plan.md`, committed under tag `v2-plan` before any lineup data was fetched.
   v2 work never changes v1 (`config/final_model.json`) or its forward log.
-- The plan's gates run in order (R, T, 0, L, D); results go in `docs/v2_gate_log.md`. Gate R passed
-  2026-10-25. No API-Football request is made before Gate T (the user's sign-up and terms check);
-  code may be prepared before then.
+- The plan's gates run in order (R, T, 0, L, D); results go in `docs/v2_gate_log.md`. Gates R and T
+  (local research) passed 2026-10-25, and Gate 0 coverage passed. The free plan only reaches the
+  2022-2024 seasons, so the backfill and 2026-27 need a paid plan (the user's choice and cost).
+  The key is the user-level `API_FOOTBALL_KEY` variable; pass it to a process without printing it.
 - Gate 0 coverage: `.venv\Scripts\python -m scripts.check_api_coverage` (one cached request; needs
   `API_FOOTBALL_KEY`; exits 1 if any season 2015-16..2026-27 lacks lineups). `src/api_football.py`
   is standard library only and the app never imports it.
