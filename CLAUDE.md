@@ -243,7 +243,11 @@ These rules apply for the whole project. If a rule blocks something, stop and as
   is standard library only and the app never imports it.
 - Lineups: `.venv\Scripts\python -m scripts.fetch_lineups [--budget 90]` fetches fixture lists and one
   lineup per request (the free plan has no batch `ids` and only 2022-2024), round by round from
-  2024-25; rerun daily to continue. `.venv\Scripts\python -m scripts.check_lineups` (cache only, no
+  2024-25; rerun daily to continue. A Windows scheduled task, "EPL predictor - daily lineup fetch"
+  (created 2026-10-25 at the user's request), runs it at 06:00 local time and appends to
+  `data/raw/api_football/fetch_log.txt`; exit code 2 means the daily limit stopped it early. Remove it
+  with `Unregister-ScheduledTask -TaskName "EPL predictor - daily lineup fetch"` once the free seasons
+  are cached or a paid plan replaces it. `.venv\Scripts\python -m scripts.check_lineups` (cache only, no
   scoring) links fixtures (needs 99%), writes `data/processed/lineup_features.parquet` and
   `reports/v2_lineup_checks.csv`, and exits 1 if the real code is flagged.
 - API-Football data is for personal research only: raw responses go in `data/raw/api_football/`

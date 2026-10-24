@@ -10,6 +10,7 @@ Run from the project root: python -m scripts.fetch_lineups [--budget 90] [--seas
 
 import argparse
 import sys
+from datetime import datetime, timezone
 
 from src.api_football import ApiFootballError, fetch_missing
 from src.lineups import fetch_order, fixtures_request, lineup_request, load_fixtures
@@ -27,6 +28,7 @@ def arguments(argv: list[str]) -> argparse.Namespace:
 
 def main(argv: list[str]) -> int:
     args = arguments(argv)
+    print(f"{datetime.now(timezone.utc):%Y-%m-%d %H:%M}Z fetch_lineups, budget {args.budget}")
     try:
         listed, _ = fetch_missing([fixtures_request(season) for season in args.seasons], args.budget)
         order = fetch_order(load_fixtures(args.seasons), args.seasons)
