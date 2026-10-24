@@ -67,6 +67,9 @@ These rules apply for the whole project. If a rule blocks something, stop and as
   use anything from the match itself (minutes, cards, goals, ratings, BPS, injuries starting during
   it), the FPL xP column (look-ahead bias), or a spell's recorded end date for anything except
   'unavailable at kickoff'.
+- v2 only (approved by the user 2026-10-25, `docs/v2_lineup_plan.md` section 4): a v2 prediction is
+  made after both official starting XIs are published and before kickoff, and may use those XIs and
+  nothing else from the match (no minutes, substitutions, events or result). v1 keeps the rule above.
 
 ## Final holdout
 - The latest complete season is the final holdout: currently 2025-26.
@@ -231,9 +234,12 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 ## v2 lineup model (pre-registered plan; nothing built)
 - Plan: `docs/v2_lineup_plan.md`, committed under tag `v2-plan` before any lineup data was fetched.
   v2 work never changes v1 (`config/final_model.json`) or its forward log.
-- Before any v2 code: the user approves the v2 prediction-time amendment (a v2 prediction is made
-  after both official XIs are published and before kickoff, and may use those XIs only), and the
-  plan's gates run in order (R, T, 0, L, D).
+- The plan's gates run in order (R, T, 0, L, D); results go in `docs/v2_gate_log.md`. Gate R passed
+  2026-10-25. No API-Football request is made before Gate T (the user's sign-up and terms check);
+  code may be prepared before then.
+- Gate 0 coverage: `.venv\Scripts\python -m scripts.check_api_coverage` (one cached request; needs
+  `API_FOOTBALL_KEY`; exits 1 if any season 2015-16..2026-27 lacks lineups). `src/api_football.py`
+  is standard library only and the app never imports it.
 - API-Football data is for personal research only: raw responses go in `data/raw/api_football/`
   (gitignored) and are never committed or pushed, nor are features derived from them. The public
   app shows v1 only until API-Football confirms in writing. The key lives in `API_FOOTBALL_KEY` or
@@ -332,6 +338,7 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 │   ├── leak_checks.py         # rebuild-and-compare checks and the planted leaks
 │   ├── leak_report.py         # reports/planted_leaks.csv (random vs targeted, real vs planted)
 │   ├── provenance.py          # reports/forward_provenance.json (git archive recompute)
+│   ├── api_football.py        # v2: API-Football requests, raw cache, coverage flags (app never imports)
 │   ├── app_support.py         # offline lookups for the app (history, confidence, fixtures)
 │   ├── metrics.py             # log loss, RPS, accuracy
 │   ├── evaluate.py            # walk-forward runner, metric tables, leakage tripwire
@@ -349,7 +356,8 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 │   ├── predict_upcoming.py
 │   ├── score_forward.py
 │   ├── make_planted_leak_report.py
-│   └── make_forward_provenance.py
+│   ├── make_forward_provenance.py
+│   └── check_api_coverage.py  # v2 Gate 0: Premier League coverage by season (one request)
 ├── app/
 │   └── app.py                 # Streamlit UI only; calls into src/
 ├── tests/                     # one test module per src module; conftest.py has synthetic seasons
