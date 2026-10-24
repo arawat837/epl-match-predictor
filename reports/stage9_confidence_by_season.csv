@@ -1,0 +1,145 @@
+predictor,subset,season,matches,accuracy,reliable
+final model,top probability > 0.45,2016-17,254,0.6692913385826772,True
+final model,top probability > 0.45,2017-18,283,0.5865724381625441,True
+final model,top probability > 0.45,2018-19,283,0.6537102473498233,True
+final model,top probability > 0.45,2019-20,275,0.5781818181818181,True
+final model,top probability > 0.45,2020-21,267,0.550561797752809,True
+final model,top probability > 0.45,2021-22,256,0.609375,True
+final model,top probability > 0.45,2022-23,269,0.587360594795539,True
+final model,top probability > 0.45,2023-24,274,0.6386861313868614,True
+final model,top probability > 0.45,2024-25,277,0.5631768953068592,True
+final model,top probability > 0.50,2016-17,194,0.7010309278350515,True
+final model,top probability > 0.50,2017-18,225,0.6222222222222222,True
+final model,top probability > 0.50,2018-19,234,0.688034188034188,True
+final model,top probability > 0.50,2019-20,220,0.6,True
+final model,top probability > 0.50,2020-21,212,0.5660377358490566,True
+final model,top probability > 0.50,2021-22,206,0.6456310679611651,True
+final model,top probability > 0.50,2022-23,220,0.6272727272727273,True
+final model,top probability > 0.50,2023-24,224,0.6875,True
+final model,top probability > 0.50,2024-25,225,0.6,True
+final model,top probability > 0.55,2016-17,141,0.7375886524822695,True
+final model,top probability > 0.55,2017-18,159,0.6666666666666666,True
+final model,top probability > 0.55,2018-19,180,0.7333333333333333,True
+final model,top probability > 0.55,2019-20,159,0.6666666666666666,True
+final model,top probability > 0.55,2020-21,162,0.6111111111111112,True
+final model,top probability > 0.55,2021-22,165,0.6666666666666666,True
+final model,top probability > 0.55,2022-23,155,0.6709677419354839,True
+final model,top probability > 0.55,2023-24,173,0.7109826589595376,True
+final model,top probability > 0.55,2024-25,172,0.6104651162790697,True
+final model,top probability > 0.60,2016-17,96,0.7291666666666666,False
+final model,top probability > 0.60,2017-18,122,0.7131147540983607,True
+final model,top probability > 0.60,2018-19,137,0.7883211678832117,True
+final model,top probability > 0.60,2019-20,120,0.7416666666666667,True
+final model,top probability > 0.60,2020-21,124,0.6370967741935484,True
+final model,top probability > 0.60,2021-22,133,0.7142857142857143,True
+final model,top probability > 0.60,2022-23,107,0.6542056074766355,True
+final model,top probability > 0.60,2023-24,132,0.7575757575757576,True
+final model,top probability > 0.60,2024-25,123,0.6341463414634146,True
+final model,top probability > 0.65,2016-17,74,0.7972972972972973,False
+final model,top probability > 0.65,2017-18,94,0.7553191489361702,False
+final model,top probability > 0.65,2018-19,106,0.8207547169811321,True
+final model,top probability > 0.65,2019-20,95,0.7473684210526316,False
+final model,top probability > 0.65,2020-21,82,0.6341463414634146,False
+final model,top probability > 0.65,2021-22,81,0.7777777777777778,False
+final model,top probability > 0.65,2022-23,81,0.6666666666666666,False
+final model,top probability > 0.65,2023-24,90,0.7666666666666667,False
+final model,top probability > 0.65,2024-25,90,0.6666666666666666,False
+final model,most confident 10%,2016-17,25,0.76,False
+final model,most confident 10%,2017-18,53,0.7924528301886793,False
+final model,most confident 10%,2018-19,57,0.8771929824561403,False
+final model,most confident 10%,2019-20,35,0.8,False
+final model,most confident 10%,2020-21,32,0.625,False
+final model,most confident 10%,2021-22,36,0.8055555555555556,False
+final model,most confident 10%,2022-23,32,0.84375,False
+final model,most confident 10%,2023-24,36,0.8888888888888888,False
+final model,most confident 10%,2024-25,36,0.7777777777777778,False
+final model,most confident 20%,2016-17,64,0.796875,False
+final model,most confident 20%,2017-18,85,0.7529411764705882,False
+final model,most confident 20%,2018-19,93,0.8064516129032258,False
+final model,most confident 20%,2019-20,76,0.7631578947368421,False
+final model,most confident 20%,2020-21,70,0.6,False
+final model,most confident 20%,2021-22,72,0.7777777777777778,False
+final model,most confident 20%,2022-23,63,0.6984126984126984,False
+final model,most confident 20%,2023-24,81,0.7654320987654321,False
+final model,most confident 20%,2024-25,80,0.65,False
+final model,most confident 30%,2016-17,89,0.7415730337078652,False
+final model,most confident 30%,2017-18,113,0.7256637168141593,True
+final model,most confident 30%,2018-19,131,0.7938931297709924,True
+final model,most confident 30%,2019-20,114,0.7456140350877193,True
+final model,most confident 30%,2020-21,113,0.6460176991150443,True
+final model,most confident 30%,2021-22,124,0.7258064516129032,True
+final model,most confident 30%,2022-23,103,0.6601941747572816,True
+final model,most confident 30%,2023-24,123,0.7642276422764228,True
+final model,most confident 30%,2024-25,116,0.646551724137931,True
+bookmaker,top probability > 0.45,2016-17,273,0.6996336996336996,True
+bookmaker,top probability > 0.45,2017-18,259,0.6216216216216216,True
+bookmaker,top probability > 0.45,2018-19,265,0.6754716981132075,True
+bookmaker,top probability > 0.45,2019-20,262,0.6183206106870229,True
+bookmaker,top probability > 0.45,2020-21,267,0.5692883895131086,True
+bookmaker,top probability > 0.45,2021-22,254,0.6220472440944882,True
+bookmaker,top probability > 0.45,2022-23,269,0.6059479553903345,True
+bookmaker,top probability > 0.45,2023-24,271,0.6715867158671587,True
+bookmaker,top probability > 0.45,2024-25,268,0.5895522388059702,True
+bookmaker,top probability > 0.50,2016-17,218,0.7064220183486238,True
+bookmaker,top probability > 0.50,2017-18,209,0.6698564593301436,True
+bookmaker,top probability > 0.50,2018-19,216,0.7361111111111112,True
+bookmaker,top probability > 0.50,2019-20,202,0.6435643564356436,True
+bookmaker,top probability > 0.50,2020-21,198,0.6313131313131313,True
+bookmaker,top probability > 0.50,2021-22,204,0.6764705882352942,True
+bookmaker,top probability > 0.50,2022-23,201,0.6567164179104478,True
+bookmaker,top probability > 0.50,2023-24,218,0.7110091743119266,True
+bookmaker,top probability > 0.50,2024-25,212,0.6132075471698113,True
+bookmaker,top probability > 0.55,2016-17,181,0.7403314917127072,True
+bookmaker,top probability > 0.55,2017-18,172,0.7034883720930233,True
+bookmaker,top probability > 0.55,2018-19,185,0.7567567567567568,True
+bookmaker,top probability > 0.55,2019-20,158,0.689873417721519,True
+bookmaker,top probability > 0.55,2020-21,159,0.6415094339622641,True
+bookmaker,top probability > 0.55,2021-22,167,0.7005988023952096,True
+bookmaker,top probability > 0.55,2022-23,157,0.6751592356687898,True
+bookmaker,top probability > 0.55,2023-24,174,0.7241379310344828,True
+bookmaker,top probability > 0.55,2024-25,174,0.632183908045977,True
+bookmaker,top probability > 0.60,2016-17,127,0.7480314960629921,True
+bookmaker,top probability > 0.60,2017-18,141,0.7588652482269503,True
+bookmaker,top probability > 0.60,2018-19,145,0.8068965517241379,True
+bookmaker,top probability > 0.60,2019-20,120,0.7166666666666667,True
+bookmaker,top probability > 0.60,2020-21,120,0.6833333333333333,True
+bookmaker,top probability > 0.60,2021-22,125,0.728,True
+bookmaker,top probability > 0.60,2022-23,113,0.6902654867256637,True
+bookmaker,top probability > 0.60,2023-24,133,0.7669172932330827,True
+bookmaker,top probability > 0.60,2024-25,120,0.6916666666666667,True
+bookmaker,top probability > 0.65,2016-17,99,0.7474747474747475,False
+bookmaker,top probability > 0.65,2017-18,113,0.7610619469026548,True
+bookmaker,top probability > 0.65,2018-19,115,0.8260869565217391,True
+bookmaker,top probability > 0.65,2019-20,100,0.74,True
+bookmaker,top probability > 0.65,2020-21,82,0.6463414634146342,False
+bookmaker,top probability > 0.65,2021-22,98,0.7653061224489796,False
+bookmaker,top probability > 0.65,2022-23,82,0.6829268292682927,False
+bookmaker,top probability > 0.65,2023-24,100,0.82,True
+bookmaker,top probability > 0.65,2024-25,89,0.7415730337078652,False
+bookmaker,most confident 10%,2016-17,42,0.8095238095238095,False
+bookmaker,most confident 10%,2017-18,60,0.7666666666666667,False
+bookmaker,most confident 10%,2018-19,57,0.8596491228070176,False
+bookmaker,most confident 10%,2019-20,38,0.7631578947368421,False
+bookmaker,most confident 10%,2020-21,25,0.72,False
+bookmaker,most confident 10%,2021-22,39,0.8461538461538461,False
+bookmaker,most confident 10%,2022-23,24,0.8333333333333334,False
+bookmaker,most confident 10%,2023-24,37,0.8378378378378378,False
+bookmaker,most confident 10%,2024-25,20,0.85,False
+bookmaker,most confident 20%,2016-17,77,0.7532467532467533,False
+bookmaker,most confident 20%,2017-18,100,0.77,True
+bookmaker,most confident 20%,2018-19,93,0.8172043010752689,False
+bookmaker,most confident 20%,2019-20,79,0.7341772151898734,False
+bookmaker,most confident 20%,2020-21,55,0.6181818181818182,False
+bookmaker,most confident 20%,2021-22,77,0.8051948051948052,False
+bookmaker,most confident 20%,2022-23,60,0.7333333333333333,False
+bookmaker,most confident 20%,2023-24,76,0.8026315789473685,False
+bookmaker,most confident 20%,2024-25,67,0.7611940298507462,False
+bookmaker,most confident 30%,2016-17,113,0.7610619469026548,True
+bookmaker,most confident 30%,2017-18,128,0.7734375,True
+bookmaker,most confident 30%,2018-19,132,0.8106060606060606,True
+bookmaker,most confident 30%,2019-20,111,0.7477477477477478,True
+bookmaker,most confident 30%,2020-21,105,0.6857142857142857,True
+bookmaker,most confident 30%,2021-22,113,0.7522123893805309,True
+bookmaker,most confident 30%,2022-23,98,0.7040816326530612,False
+bookmaker,most confident 30%,2023-24,118,0.7966101694915254,True
+bookmaker,most confident 30%,2024-25,108,0.7129629629629629,True

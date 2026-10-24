@@ -26,6 +26,8 @@ These rules apply for the whole project. If a rule blocks something, stop and as
   `data/raw/fpl/`, coverage report, writes `data/processed/availability.parquet`; audit only)
 - Stage 8 evaluation: `.venv\Scripts\python -m scripts.evaluate_availability` (gating check, builds
   `data/processed/availability_features.parquet`, offset-model steps, writes `reports/stage8_*.csv`)
+- Stage 9 analysis: `.venv\Scripts\python -m scripts.analyse_final_model` (calibration test,
+  reliability, confidence vs bookmaker; writes `reports/stage9_*`)
 - Tests: `.venv\Scripts\python -m pytest` (about two minutes; leakage and model fold tests are most of it)
 
 ## Data leakage rules (non-negotiable)
@@ -153,6 +155,19 @@ These rules apply for the whole project. If a rule blocks something, stop and as
   logistic with vs without, windows from 2016-17): with is worse. Don't revisit these features using
   reporting results.
 
+## Final model (frozen, Stage 9)
+- `config/final_model.json` is the final model, committed under git tag `pre-holdout-config`:
+  tuned Elo (15/50/0.9), the 7 compact features, L2 logistic C=0.03, median imputer + scaler per
+  training window. `src/final_model.py` builds it; `tests/test_final_model.py` pins it to the code.
+  Do not edit the config after the holdout is evaluated.
+- Temperature scaling (T fitted on season S-1's out-of-sample forecasts, applied to S) was tested
+  and NOT kept: tuning log loss 0.9444 raw vs 0.9546 scaled; reporting 0.9818 vs 0.9853.
+- Reliability 2016-17..2024-25: home wins well calibrated; top draw decile over-predicted
+  (0.30 vs 0.24); away wins under-predicted by 2-6 points across deciles.
+- Confidence (pooled 2016-17..2024-25, 3,420 matches): model's most confident 10% (342 matches)
+  80.4% correct vs bookmaker's own most confident 10% 81.0%; 20%: 73.7% vs 76.2%; 30%: 71.8% vs 75.2%.
+  Per-season subsets are under 100 matches, so only pooled figures are reliable.
+
 ## Metrics and reporting
 - Report log loss and ranked probability score (RPS, outcome order H, D, A) first; accuracy second.
 - Every result is shown next to baselines on the same matches:
@@ -184,7 +199,7 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 6. Honest tuning: Elo grid, compact logistic, compact XGBoost (tune/report split)
 7. Availability and form data audit (FPL archive; no modelling)
 8. Availability and form features on an offset model (pre-registered rule; none adopted)
-9. Reporting: metric tables, calibration and per-season plots
+9. Freeze the final model, calibration test, reliability, confidence analysis
 10. Streamlit app
 11. Holdout evaluation (only when the user says so)
 
@@ -202,6 +217,8 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 ├── CLAUDE.md
 ├── requirements.txt           # pinned deps
 ├── pyproject.toml             # pytest config (puts the project root on the path)
+├── config/
+│   └── final_model.json       # frozen final model (tag pre-holdout-config)
 ├── .gitignore
 ├── data/
 │   ├── raw/                   # gitignored: E0_{code}.csv, fpl/ archive, fpl_api/ snapshot
@@ -228,6 +245,9 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 │   ├── availability_features.py # Stage 8 suspension, squad value, form, recent absence
 │   ├── offset.py              # offset model on frozen base probabilities
 │   ├── experiments.py         # Stage 8 protocol: base OOS, folds, lambda, decision rule
+│   ├── final_model.py         # loads config/final_model.json, builds the final predictor
+│   ├── calibration.py         # temperature scaling fitted on the previous season
+│   ├── confidence.py          # reliability deciles, confidence subsets vs bookmaker
 │   ├── metrics.py             # log loss, RPS, accuracy
 │   ├── evaluate.py            # walk-forward runner, metric tables, leakage tripwire
 │   └── plots.py               # report figures (feature importance; calibration later)
@@ -238,7 +258,8 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 │   ├── evaluate_models.py
 │   ├── tune_models.py
 │   ├── audit_availability.py
-│   └── evaluate_availability.py
+│   ├── evaluate_availability.py
+│   └── analyse_final_model.py
 ├── app/
 │   └── streamlit_app.py *     # UI only; calls into src/
 ├── tests/                     # one test module per src module; conftest.py has synthetic seasons
