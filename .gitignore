@@ -4,5 +4,6 @@ __pycache__/
 .pytest_cache/
 .ipynb_checkpoints/
 data/raw/
-data/processed/
+data/processed/*
+!data/processed/matches.parquet
 .streamlit/secrets.toml
