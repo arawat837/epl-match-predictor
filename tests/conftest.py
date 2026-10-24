@@ -56,6 +56,14 @@ def make_seasons() -> Callable[..., pd.DataFrame]:
     return make
 
 
+@pytest.fixture
+def seasons_with_promotion() -> pd.DataFrame:
+    """Three full synthetic seasons (2005-06 to 2007-08): Team 19 misses the middle one, in which
+    Team 20 is promoted, and returns in 2007-08 after a gap of over a year."""
+    middle = synthetic_season(2006).replace({"home": {"Team 19": "Team 20"}, "away": {"Team 19": "Team 20"}})
+    return pd.concat([synthetic_season(2005), middle, synthetic_season(2007)], ignore_index=True)
+
+
 def season_of(day: pd.Timestamp) -> str:
     """Season label for a date, with seasons turning over on 1 July."""
     return season_label(day.year if day.month >= 7 else day.year - 1)

@@ -35,6 +35,11 @@ These rules apply for the whole project. If a rule blocks something, stop and as
   football-data.co.uk `fixtures.csv`, appends to `data/forward/predictions_log.csv`); score it with
   `.venv\Scripts\python -m scripts.score_forward`. Commit code before logging so the logged hash matches.
 - App: `.venv\Scripts\streamlit run app/app.py` (offline; light theme in `.streamlit/config.toml`)
+- Audit reports cited by the README: `.venv\Scripts\python -m scripts.make_planted_leak_report` (reruns every
+  leakage check on the real code and on planted leaks, random and targeted samples; writes
+  `reports/planted_leaks.csv`; exits 1 if the real code is flagged; slow) and
+  `.venv\Scripts\python -m scripts.make_forward_provenance` (recomputes the first logged batch with the code
+  exported by `git archive`, never the working tree; writes `reports/forward_provenance.json`)
 - Commits: in Windows PowerShell 5.1, write commit messages containing double quotes to a file and use
   `git commit -F <file>`; `-m` mangles the quotes.
 - Tests: `.venv\Scripts\python -m pytest` (about three minutes; leakage, model fold and forward tests dominate)
@@ -96,8 +101,14 @@ These rules apply for the whole project. If a rule blocks something, stop and as
   last_season_ppg 1.0 for promoted teams and the first season.
 - 54 features: elo_home/elo_away/elo_diff, then home_X, away_X and X_diff (home minus away).
   `burn_in` flags the first season (kept, not a feature).
-- `tests/test_leakage.py` rebuilds 50 random matches from rows dated strictly before them (plus
-  the match itself with its own stats scrambled) and requires identical features.
+- `tests/test_leakage.py` rebuilds 50 matches from rows dated strictly before them (plus the match
+  itself with its own stats scrambled) and requires identical features. The 50 are stratified
+  (`src/leak_samples.py`): at least 5 each of season openers, the first 3 matchweeks, promoted sides'
+  first 5 matches and matches after a gap of over 200 days; the rest random.
+- Planted leaks (`src/leak_checks.py`, report in `src/leak_report.py`): each is checked on a random
+  sample and on a sample targeted at the case where it first shows; the real code on the same targeted
+  sample. A leak confined to rare cases (spell break read from the next match) passes 10 random matches
+  and is caught on all 33 last-matches-before-a-missed-season.
 
 ## Models (`src/models.py`, untuned)
 - Model table (`src/dataset.py`): evaluation matches joined one-to-one with features.parquet,
@@ -249,6 +260,8 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 9. Freeze the final model, calibration test, reliability, confidence analysis
 10. Holdout evaluation (done once; see Holdout result)
 11. Forward prediction log and Streamlit app
+12. README and claims audit (`docs/claims.md`, `tests/test_readme_claims.py`); 12b: audit reports
+    rebuilt by scripts, targeted leak samples, stratified leakage sample
 
 ## Data
 - Source: football-data.co.uk EPL files, `mmz4281/{code}/E0.csv`, 2005-06 to the current season.
@@ -299,6 +312,10 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 │   ├── holdout.py             # Stage 10 holdout fold, unlock and frozen-config guards
 │   ├── forward.py             # fixtures, fixture features, append-only log, forward scoring
 │   ├── explain.py             # exact per-feature log-odds contributions
+│   ├── leak_samples.py        # random, stratified and targeted samples for leakage checks
+│   ├── leak_checks.py         # rebuild-and-compare checks and the planted leaks
+│   ├── leak_report.py         # reports/planted_leaks.csv (random vs targeted, real vs planted)
+│   ├── provenance.py          # reports/forward_provenance.json (git archive recompute)
 │   ├── app_support.py         # offline lookups for the app (history, confidence, fixtures)
 │   ├── metrics.py             # log loss, RPS, accuracy
 │   ├── evaluate.py            # walk-forward runner, metric tables, leakage tripwire
@@ -314,7 +331,9 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 │   ├── analyse_final_model.py
 │   ├── evaluate_holdout.py
 │   ├── predict_upcoming.py
-│   └── score_forward.py
+│   ├── score_forward.py
+│   ├── make_planted_leak_report.py
+│   └── make_forward_provenance.py
 ├── app/
 │   └── app.py                 # Streamlit UI only; calls into src/
 ├── tests/                     # one test module per src module; conftest.py has synthetic seasons

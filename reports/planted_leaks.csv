@@ -1,20 +1,14 @@
-stage,check,cases_checked,flagged
-4 features,"real code: rebuilt from earlier rows, own stats scrambled",50,0
-4 features,real code (planted-leak sample),10,0
-4 features,real code (planted-leak sample): last match before a missed season,33,0
-4 features,rolling window without shift(1),10,10
-4 features,days rest measured to the next match,10,10
-4 features,season PPG includes this match,10,8
-4 features,Elo stores post-update ratings,10,10
-4 features,spell break read from the next match,10,0
-4 features,spell break read from the next match: last match before a missed season,33,33
-7 availability,"real code: rebuilt from earlier rows, own rows scrambled",50,0
-7 availability,real code (planted-leak sample),10,0
-7 availability,key players include the match's own minutes,10,10
-7 availability,price snapshot dated after the match,10,10
-7 availability,real rule: injury spell started before the match date (synthetic),1,0
-7 availability,injury spell starting on the match date counted (synthetic),1,1
-8 features,"real code: rebuilt from earlier rows, own rows scrambled",50,0
-8 features,real code (planted-leak sample),10,0
-8 features,recent_absence from match t's own minutes,10,10
-8 features,squad value from a snapshot dated after the match,10,10
+stage,check,random_cases,random_flagged,targeted_sample,targeted_cases,targeted_flagged,real_code_targeted_flagged
+4 features,"real code: rebuilt from earlier rows, own stats scrambled",50,0,"stratified: season openers, first 3 matchweeks, promoted sides' first 5, after a 200-day gap",50,0,0
+4 features,rolling window without shift(1),10,10,third match of a spell,10,10,0
+4 features,days rest measured to the next match,10,10,first match of a spell,10,10,0
+4 features,season PPG includes this match,10,8,first match of a season,10,7,0
+4 features,Elo stores post-update ratings,10,10,first match of a season,10,10,0
+4 features,spell break read from the next match,10,0,last match before a missed season,33,33,0
+7 availability,"real code: rebuilt from earlier rows, own rows scrambled",50,0,,,,
+7 availability,key players include the match's own minutes,10,10,first match of a season,10,10,0
+7 availability,price snapshot dated after the match,10,10,first match of a season,10,10,0
+7 availability,injury spell starting on the match date counted,,,"synthetic spells: one started before the match date, one on it",1,1,0
+8 features,"real code: rebuilt from earlier rows, own rows scrambled",50,0,,,,
+8 features,recent_absence from match t's own minutes,10,9,both sides' recent_absence defined,10,10,0
+8 features,squad value from a snapshot dated after the match,10,10,both sides' recent_absence defined,10,10,0

@@ -41,31 +41,29 @@ the holdout was evaluated.
   squad list as of that date; nothing from the match itself.
 - **Features use strictly earlier matches only**: rolling windows are shifted before rolling, Elo ratings are stored before
   each update, and a team returning after a missed season starts a new history.
-- **Rebuild tests**: sampled matches have their features rebuilt from earlier rows only, with the match's own rows replaced by impossible values; the rebuilt values must equal the stored ones (sample seed 2026).
+- **Rebuild tests**: sampled matches have their features rebuilt from earlier rows only, with the match's own rows replaced by impossible values; the rebuilt values must equal the stored ones (sample seed 2026). The Stage 4 sample of 50 is stratified: it always includes season openers, matches in the first 3 matchweeks, promoted sides' first 5 matches and matches after a gap of over 200 days, and the rest is random.
 - **Planted leaks**: each check makes the leaky code build both the stored table and the rebuild, so a real leak shows up
-  as rebuilt values that differ. Counts from `reports/planted_leaks.csv`:
+  as rebuilt values that differ. Each planted leak is checked on a random sample and on a sample targeted at the case
+  where it first shows, and the real code is checked on the same targeted sample. Counts from
+  `reports/planted_leaks.csv` (rebuild with `scripts.make_planted_leak_report`):
 
-| Stage | Check | Cases checked | Flagged |
-|---|---|---|---|
-| 4 features | real code: rebuilt from earlier rows, own stats scrambled | 50 | 0 |
-| 4 features | real code (planted-leak sample) | 10 | 0 |
-| 4 features | real code (planted-leak sample): last match before a missed season | 33 | 0 |
-| 4 features | rolling window without shift(1) | 10 | 10 |
-| 4 features | days rest measured to the next match | 10 | 10 |
-| 4 features | season PPG includes this match | 10 | 8 |
-| 4 features | Elo stores post-update ratings | 10 | 10 |
-| 4 features | spell break read from the next match | 10 | 0 |
-| 4 features | spell break read from the next match: last match before a missed season | 33 | 33 |
-| 7 availability | real code: rebuilt from earlier rows, own rows scrambled | 50 | 0 |
-| 7 availability | real code (planted-leak sample) | 10 | 0 |
-| 7 availability | key players include the match's own minutes | 10 | 10 |
-| 7 availability | price snapshot dated after the match | 10 | 10 |
-| 7 availability | real rule: injury spell started before the match date (synthetic) | 1 | 0 |
-| 7 availability | injury spell starting on the match date counted (synthetic) | 1 | 1 |
-| 8 features | real code: rebuilt from earlier rows, own rows scrambled | 50 | 0 |
-| 8 features | real code (planted-leak sample) | 10 | 0 |
-| 8 features | recent_absence from match t's own minutes | 10 | 10 |
-| 8 features | squad value from a snapshot dated after the match | 10 | 10 |
+| Stage | Check | Random sample: flagged | Targeted sample | Targeted: flagged | Real code on the targeted sample: flagged |
+|---|---|---|---|---|---|
+| 4 features | real code: rebuilt from earlier rows, own stats scrambled | 0 of 50 | stratified: season openers, first 3 matchweeks, promoted sides' first 5, after a 200-day gap | 0 of 50 | 0 of 50 |
+| 4 features | rolling window without shift(1) | 10 of 10 | third match of a spell | 10 of 10 | 0 of 10 |
+| 4 features | days rest measured to the next match | 10 of 10 | first match of a spell | 10 of 10 | 0 of 10 |
+| 4 features | season PPG includes this match | 8 of 10 | first match of a season | 7 of 10 | 0 of 10 |
+| 4 features | Elo stores post-update ratings | 10 of 10 | first match of a season | 10 of 10 | 0 of 10 |
+| 4 features | spell break read from the next match | 0 of 10 | last match before a missed season | 33 of 33 | 0 of 33 |
+| 7 availability | real code: rebuilt from earlier rows, own rows scrambled | 0 of 50 | n/a | n/a | n/a |
+| 7 availability | key players include the match's own minutes | 10 of 10 | first match of a season | 10 of 10 | 0 of 10 |
+| 7 availability | price snapshot dated after the match | 10 of 10 | first match of a season | 10 of 10 | 0 of 10 |
+| 7 availability | injury spell starting on the match date counted | n/a | synthetic spells: one started before the match date, one on it | 1 of 1 | 0 of 1 |
+| 8 features | real code: rebuilt from earlier rows, own rows scrambled | 0 of 50 | n/a | n/a | n/a |
+| 8 features | recent_absence from match t's own minutes | 9 of 10 | both sides' recent_absence defined | 10 of 10 | 0 of 10 |
+| 8 features | squad value from a snapshot dated after the match | 10 of 10 | both sides' recent_absence defined | 10 of 10 | 0 of 10 |
+
+  A leak confined to rare cases, the spell break read from the next match, was flagged on 0 of 10 random matches, so random sampling missed it, and caught on 33 of 33 targeted ones (a side's last match before a missed season); the real code flagged 0 of the same 33.
 
 - **Leakage tripwire**: the first rule stopped work whenever any single season's accuracy exceeded 58%. The bookmaker itself crossed that line in several seasons, so the rule flagged ordinary predictable seasons rather than leaks:
 
@@ -75,11 +73,16 @@ the holdout was evaluated.
 | 2018-19 | 58.7% | 380 |
 | 2021-22 | 58.2% | 380 |
 | 2023-24 | 59.7% | 380 |
-| pooled | 55.5% | 3800 |
+| pooled 2015-16 to 2024-25 | 55.5% | 3800 |
 
   It was replaced by a pooled rule: stop and audit if pooled accuracy across all test seasons exceeds 58%, or if any model's pooled log loss is lower than the bookmaker's. It has not fired on any reported result.
 
 ## Results
+
+Every pooled figure is labelled with its seasons. The walk-forward tables pool 2015-16 to 2024-25, while the
+calibration and confidence figures pool 2016-17 to 2024-25: calibration and confidence analysis start in 2016-17,
+because each season's temperature was fitted on the previous season's out-of-sample forecasts, which start in
+2015-16.
 
 ### Walk-forward, 2015-16 to 2024-25
 
@@ -102,7 +105,7 @@ unbiased test.
 | 2022-23 | 1.0986 | n/a | 1.0487 | 0.9691 | 0.9643 | 0.9727 | 0.9754 | 0.9662 |
 | 2023-24 | 1.0986 | n/a | 1.0561 | 0.9349 | 0.9368 | 0.9454 | 0.9295 | 0.9092 |
 | 2024-25 | 1.0986 | n/a | 1.0840 | 0.9935 | 1.0002 | 0.9920 | 0.9984 | 0.9708 |
-| pooled | 1.0986 | n/a | 1.0673 | 0.9739 | 0.9761 | 0.9746 | 0.9724 | 0.9544 |
+| pooled 2015-16 to 2024-25 | 1.0986 | n/a | 1.0673 | 0.9739 | 0.9761 | 0.9746 | 0.9724 | 0.9544 |
 
 **Ranked probability score** (lower is better)
 
@@ -118,7 +121,7 @@ unbiased test.
 | 2022-23 | 0.2396 | 0.4013 | 0.2276 | 0.1997 | 0.1994 | 0.2002 | 0.2019 | 0.1990 |
 | 2023-24 | 0.2418 | 0.4316 | 0.2340 | 0.1919 | 0.1900 | 0.1941 | 0.1897 | 0.1839 |
 | 2024-25 | 0.2370 | 0.4697 | 0.2365 | 0.2048 | 0.2064 | 0.2013 | 0.2065 | 0.1972 |
-| pooled | 0.2389 | 0.4384 | 0.2333 | 0.2003 | 0.2000 | 0.2002 | 0.1998 | 0.1944 |
+| pooled 2015-16 to 2024-25 | 0.2389 | 0.4384 | 0.2333 | 0.2003 | 0.2000 | 0.2002 | 0.1998 | 0.1944 |
 
 **Accuracy**
 
@@ -134,7 +137,7 @@ unbiased test.
 | 2022-23 | 48.4% | 48.4% | 48.4% | 53.9% | 54.2% | 55.3% | 53.9% | 55.8% | 380 |
 | 2023-24 | 46.1% | 46.1% | 46.1% | 57.6% | 57.6% | 57.6% | 57.4% | 59.7% | 380 |
 | 2024-25 | 40.8% | 40.8% | 40.8% | 51.6% | 52.1% | 53.4% | 50.5% | 53.9% | 380 |
-| pooled | 44.5% | 44.5% | 44.5% | 54.1% | 53.9% | 54.2% | 54.3% | 55.5% | 3800 |
+| pooled 2015-16 to 2024-25 | 44.5% | 44.5% | 44.5% | 54.1% | 53.9% | 54.2% | 54.3% | 55.5% | 3800 |
 
 ### Holdout, 2025-26 (run once)
 
@@ -159,7 +162,7 @@ Paired per-match log loss difference, final model minus reference (negative = mo
 
 Accuracy (matches) on each predictor's own subsets; the "most confident" rows compare the two at equal coverage. Pooled columns cover 2016-17 to 2024-25, seasons the model was tuned or reported on; holdout columns cover 2025-26. Cells under 100 matches are marked unreliable. Sources: `reports/stage9_confidence.csv`, `reports/stage10_confidence.csv`.
 
-| Subset | Model, pooled accuracy (matches) | Bookmaker, pooled accuracy (matches) | Model, holdout accuracy (matches) | Bookmaker, holdout accuracy (matches) |
+| Subset | Model, pooled 2016-17 to 2024-25: accuracy (matches) | Bookmaker, pooled 2016-17 to 2024-25: accuracy (matches) | Model, holdout 2025-26: accuracy (matches) | Bookmaker, holdout 2025-26: accuracy (matches) |
 |---|---|---|---|---|
 | top probability > 0.45 | 60.4% (2438) | 63.1% (2388) | 52.5% (263) | 53.4% (262) |
 | top probability > 0.50 | 63.7% (1960) | 67.3% (1878) | 55.8% (199) | 55.9% (195) |
@@ -172,10 +175,10 @@ Accuracy (matches) on each predictor's own subsets; the "most confident" rows co
 
 ## What did not work
 
-- **XGBoost did not beat Elo-only**: pooled log loss 0.9746 against 0.9739 for logistic regression on the Elo difference alone (`reports/model_metrics.csv`).
-- **Stage 6 tuning gains were within noise.** Choices were made on the tuning seasons, then scored once on the reporting seasons, where the original Elo-only model scored 0.9823 (`reports/stage6_vs_original.csv`):
+- **XGBoost did not beat Elo-only**: pooled log loss (2015-16 to 2024-25) 0.9746 against 0.9739 for logistic regression on the Elo difference alone (`reports/model_metrics.csv`).
+- **Stage 6 tuning gains were within noise.** Choices were made on the tuning seasons, then scored once on the reporting seasons (2020-21 to 2024-25), where the original Elo-only model scored 0.9823 (`reports/stage6_vs_original.csv`):
 
-| Model | Reporting log loss | Minus original Elo-only | Standard error | Verdict vs original Elo-only |
+| Model | Log loss, pooled 2020-21 to 2024-25 | Minus original Elo-only | Standard error | Verdict vs original Elo-only |
 |---|---|---|---|---|
 | logistic (all), stage 5 | 0.9807 | -0.0016 | 0.0037 | beats, within noise |
 | xgboost (all), stage 5 | 0.9830 | +0.0008 | 0.0036 | does not beat |
@@ -188,25 +191,25 @@ Accuracy (matches) on each predictor's own subsets; the "most confident" rows co
   market value, FPL BPS and ICT in place of player ratings, and an injury PROXY built from zero minutes in the previous
   match (`reports/stage8_decisions.csv`, `reports/stage8_differences.csv`):
 
-| Step | Groups (cumulative) | Lambda | Tuning minus base (SE) | Reporting minus base (SE) | Reporting seasons won | Decision |
+| Step | Groups (cumulative) | Lambda | Tuning, pooled 2017-18 to 2019-20: minus base (SE) | Reporting, pooled 2020-21 to 2024-25: minus base (SE) | Reporting seasons won | Decision |
 |---|---|---|---|---|---|---|
 | 1 | suspension | 0.1 | +0.0021 (SE 0.0014) | +0.0006 (SE 0.0004) | 0 of 5 | not adopted |
 | 2 | suspension + squad_value | 0.1 | +0.0025 (SE 0.0032) | +0.0003 (SE 0.0011) | 3 of 5 | not adopted |
 | 3 | suspension + squad_value + form | 0.1 | +0.0021 (SE 0.0037) | +0.0009 (SE 0.0013) | 2 of 5 | not adopted |
 | 4 | suspension + squad_value + form + recent_absence | 0.1 | +0.0020 (SE 0.0037) | +0.0006 (SE 0.0014) | 4 of 5 | not adopted |
 
-- **Temperature scaling was dropped**: tuning log loss 0.9444 without scaling against 0.9546 with it; on the reporting seasons 0.9818 against 0.9853 (`reports/stage9_calibration.csv`).
+- **Temperature scaling was dropped**: tuning log loss (2016-17 to 2019-20) 0.9444 without scaling against 0.9546 with it; on the reporting seasons (2020-21 to 2024-25) 0.9818 against 0.9853 (`reports/stage9_calibration.csv`).
 
 ## Limitations
 
 - No injury, suspension or lineup data is used; the injury feature, where tested, was a proxy.
 - Draws are never predicted, so every draw counts as wrong: in the holdout confusion matrix the predicted-draw column is 0 for actual home wins, 0 for actual draws and 0 for actual away wins (`reports/stage10_holdout.md`).
-- Away wins are under-predicted: in 10 of the 10 away-win reliability deciles the observed rate exceeds the predicted one, by 0.6 to 5.9 points (`reports/stage9_reliability.csv`).
+- Away wins are under-predicted: in 10 of the 10 away-win reliability deciles (pooled 2016-17 to 2024-25) the observed rate exceeds the predicted one, by 0.6 to 5.9 points (`reports/stage9_reliability.csv`).
 - Newly promoted teams start from a default rating (1450), not from their second-tier form.
 - The forward model was fitted once on every match from 2006-07 through 2025-26 and is not refitted during 2026-27.
 - The tuning and reporting seasons were examined repeatedly, so only the holdout is unbiased.
 - One season is 380 matches, so a single-season accuracy has a standard error of roughly 2.6 points (the square root of p(1-p)/n at the holdout accuracy).
-- The holdout was a hard season for both model and bookmaker: the model's holdout log loss was 1.0271 against 0.9818 on the reporting seasons, and the bookmaker's 1.0185 against 0.9581.
+- The holdout was a hard season for both model and bookmaker: the model's holdout log loss was 1.0271 against 0.9818 pooled over the reporting seasons (2020-21 to 2024-25), and the bookmaker's 1.0185 against 0.9581.
 
 ## How to run
 
@@ -232,6 +235,15 @@ App (offline):
 .venv\Scripts\streamlit run app/app.py
 ```
 
+Rebuild the two audit reports the README cites. The first reruns every leakage check on the real code and on the planted
+leaks (slow) and exits 1 if the real code is flagged; the second recomputes the first logged batch with the code exported
+by `git archive` (never the working tree) and exits 1 unless it is reproduced exactly:
+
+```powershell
+.venv\Scripts\python -m scripts.make_planted_leak_report
+.venv\Scripts\python -m scripts.make_forward_provenance
+```
+
 In Windows PowerShell 5.1, write commit messages that contain double quotes to a file and use `git commit -F <file>`; passing them with `-m` mangles the quotes.
 
 ## Forward test
@@ -239,6 +251,10 @@ In Windows PowerShell 5.1, write commit messages that contain double quotes to a
 `data/forward/predictions_log.csv` is append-only: rows are never edited or deleted, fixtures that have kicked off are refused, and a logged fixture gets a new row only when new results change its inputs. Scoring takes, for each played match, the latest prediction made before its actual kickoff and compares it with the bookmaker's odds in the same results file, with standard errors; below 100 scored matches it reports "too few matches to conclude". Current record (`reports/forward_score.csv`): 0 scored matches, too few matches to conclude.
 
 The first 9 predictions were logged at 2026-10-24 00:53:30Z from the working tree, the code was committed as 84320e1 at 01:01:52Z, both before the first kickoff (11:30Z), and recomputing the 9 predictions from the committed code reproduces them exactly (max difference 0.0).
+
+These values are read from `reports/forward_provenance.json`, rebuilt by `scripts.make_forward_provenance`. The log
+records commit 9ba08a24b29e5273aa2e5536e1192208647578c1, which has no forward code, so the recompute runs
+84320e1, the commit that added `src/forward.py`, exported with `git archive`.
 
 Kickoff times are stored in UTC and converted from UK local time with the Europe/London time zone.
 

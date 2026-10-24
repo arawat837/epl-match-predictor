@@ -190,6 +190,27 @@ def test_claim_sources_are_reports_or_config_except_the_listed_rule_sources():
     assert outside == ["CLAUDE.md"]  # clause number and rule thresholds, listed as exceptions in docs/claims.md
 
 
+def producers() -> dict[str, str]:
+    """Source file -> the command that produces it, from the sources table in docs/claims.md."""
+    rows = {}
+    for line in CLAIMS.read_text(encoding="utf-8").splitlines():
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if line.startswith("| `") and len(cells) == 2:
+            rows[cells[0].strip("`")] = cells[1]
+    return rows
+
+
+@needs_docs
+def test_every_claim_source_names_the_command_that_produces_it():
+    commands = producers()
+    assert {row["source"] for row in claim_rows()} <= set(commands)
+    for source, command in commands.items():
+        for module in re.findall(r"scripts\.(\w+)", command):
+            assert (PROJECT_ROOT / "scripts" / f"{module}.py").exists(), (source, module)
+    assert "scripts.make_planted_leak_report" in commands["reports/planted_leaks.csv"]
+    assert "scripts.make_forward_provenance" in commands["reports/forward_provenance.json"]
+
+
 @needs_docs
 def test_every_percentage_and_decimal_in_the_readme_is_claimed():
     claimed = {row["claim"] for row in claim_rows()}

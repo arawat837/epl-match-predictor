@@ -1,12 +1,13 @@
 """Leakage tests on the real feature table: a match's features depend only on earlier matches.
 
-For 50 random matches, the features are rebuilt from a table holding only matches dated
-strictly before that match, plus the match itself with its goals, result and shots
-replaced by values no real match has. If a feature read anything from the same day or
+For a stratified sample of 50 matches, the features are rebuilt from a table holding only
+matches dated strictly before that match, plus the match itself with its goals, result and
+shots replaced by values no real match has. If a feature read anything from the same day or
 later, or from the match's own stats, the rebuilt value would differ from the stored one.
+The sample always includes the rare cases where defaults and spell breaks apply (season
+openers, the first 3 matchweeks, promoted sides' first 5 matches, matches after a gap of over
+200 days); the rest is random.
 """
-
-import random
 
 import pandas as pd
 import pytest
@@ -14,17 +15,14 @@ import pytest
 from src.config import FEATURES_PATH, MATCHES_PATH
 from src.data import ODDS_COLUMNS, POST_MATCH_COLUMNS
 from src.features import build_features, feature_columns
+from src.leak_checks import MATCH_KEY, earlier_plus_scrambled
+from src.leak_samples import PER_STRATUM, SAMPLE_SIZE, STRATA, matches_where, side_positions, stratified_sample
 from src.splits import load_evaluation_matches
 
 pytestmark = pytest.mark.skipif(
     not (MATCHES_PATH.exists() and FEATURES_PATH.exists()),
     reason="run `python -m scripts.build_dataset` and `python -m scripts.build_features` first",
 )
-
-SAMPLE_SIZE = 50
-SEED = 2026
-MATCH_KEY = ["date", "home", "away"]
-SCRAMBLED = {"FTHG": 0, "FTAG": 9, "result": "A", "HS": 99, "AS": 99, "HST": 99, "AST": 99}
 
 
 @pytest.fixture(scope="module")
@@ -39,16 +37,13 @@ def stored() -> pd.DataFrame:
 
 @pytest.fixture(scope="module")
 def sample(matches: pd.DataFrame) -> list[int]:
-    return random.Random(SEED).sample(list(matches.index), SAMPLE_SIZE)
+    return stratified_sample(matches)
 
 
-def earlier_plus_scrambled(matches: pd.DataFrame, target: int) -> pd.DataFrame:
-    """Every match dated strictly before `target`, then `target` with its own stats scrambled."""
-    match = matches.loc[[target]].copy()
-    for column, value in SCRAMBLED.items():
-        match.loc[target, column] = value
-    earlier = matches[matches["date"] < match.loc[target, "date"]]
-    return pd.concat([earlier, match])
+@pytest.mark.parametrize("stratum", list(STRATA))
+def test_sample_includes_every_rare_case(stratum, matches, sample):
+    members = set(matches_where(side_positions(matches), STRATA[stratum]))
+    assert len(members.intersection(sample)) >= PER_STRATUM
 
 
 @pytest.mark.parametrize("draw", range(SAMPLE_SIZE))
