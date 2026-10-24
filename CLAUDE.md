@@ -254,6 +254,13 @@ These rules apply for the whole project. If a rule blocks something, stop and as
   (gitignored) and are never committed or pushed, nor are features derived from them. The public
   app shows v1 only until API-Football confirms in writing. The key lives in `API_FOOTBALL_KEY` or
   `.streamlit/secrets.toml`, never in code, logs or reports.
+- Amendment A (2026-10-25, before any injury data was fetched): v2 step 2 adds `points_ewma`
+  (`src/ewma_form.py`); a separate pre-lineup variant v2-pre (v1 + `injured_regulars`, `injured_count`,
+  `points_ewma`; API-Football injury lists only, never scraping; tuning 2021-22..2023-24) needs Gate I
+  first: at most 2% of "Missing Fixture" records may name a starter
+  (`.venv\Scripts\python -m scripts.check_injuries`, cache only, writes `reports/v2_injury_checks.csv`;
+  exit 3 means no data yet). The verdict uses the Holm correction over the comparisons that reach it.
+  The daily fetch also takes each season's injury list (a few requests) before lineups.
 - No v2 result on 2026-27 is computed before the verdict (after the last matchday, unlock flag,
   config tagged `v2-pre-verdict`). Changes go in the plan's Amendments section, dated, before then.
 
@@ -352,6 +359,10 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 │   ├── lineups.py             # v2: cached fixtures and XIs, team names, linking to matches.parquet
 │   ├── lineup_features.py     # v2: xi_regulars, xi_changes, keeper_changed (plan section 5)
 │   ├── lineup_leaks.py        # v2 Gate L: rebuild checks and planted leaks for lineup features
+│   ├── ewma_form.py           # v2 amendment A1: points_ewma (span 5, after shift(1))
+│   ├── injuries.py            # v2-pre: API-Football injury lists, linking, Gate I
+│   ├── injury_features.py     # v2-pre: injured_regulars, injured_count (never the match's own XI)
+│   ├── injury_leaks.py        # v2-pre Gate L: rebuilds and planted leaks for injury features
 │   ├── app_support.py         # offline lookups for the app (history, confidence, fixtures)
 │   ├── metrics.py             # log loss, RPS, accuracy
 │   ├── evaluate.py            # walk-forward runner, metric tables, leakage tripwire
@@ -372,7 +383,8 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 │   ├── make_forward_provenance.py
 │   ├── check_api_coverage.py  # v2 Gate 0: Premier League coverage by season (one request)
 │   ├── fetch_lineups.py       # v2: fixture lists and lineups into the raw cache, daily budget
-│   └── check_lineups.py       # v2 Gate L: linking, lineup features, leakage checks (no scoring)
+│   ├── check_lineups.py       # v2 Gate L: linking, lineup features, leakage checks (no scoring)
+│   └── check_injuries.py      # v2-pre Gate I, then Gate L for injury features (no scoring)
 ├── app/
 │   └── app.py                 # Streamlit UI only; calls into src/
 ├── tests/                     # one test module per src module; conftest.py has synthetic seasons

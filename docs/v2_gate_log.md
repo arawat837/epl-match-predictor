@@ -12,3 +12,12 @@ edited here; changes to it go in its Amendments section.
 | 0 timing | | not run | Polling each match's lineup from 90 minutes before kickoff on a matchday (not built yet; needs current-season access). |
 | L (leakage, linking) | 2026-10-25 | passed on the data so far; rerun after the backfill | `scripts.check_lineups`: all 1,140 fixtures of 2022-23 to 2024-25 link to `matches.parquet` (100%). 85 lineups fetched (2024-25 rounds 1 to 9; free plan: one request per match, no batch), all complete. Real code flagged on 0 of 50 stratified rebuilds and on none of the targeted samples. Planted leaks caught (random / targeted): bench counted as starters 10/10 and 10/10; previous XI from the next match 9/10 and 10/10; regular XI from later matches 4/10 and 10/10 (`reports/v2_lineup_checks.csv`). |
 | D (development) | | not run | |
+
+## v2+EWMA and v2-pre (plan amendment A, committed 2026-10-25 before any injury data was fetched)
+
+| Gate | Date | Result | Evidence |
+|---|---|---|---|
+| L for EWMA form | 2026-10-25 | passed | `tests/test_ewma_form.py`: the real stratified 50-match sample rebuilds identically; the planted leak (no shift) is caught. |
+| I (injury lists) | | waiting for data | `scripts.check_injuries` once the daily fetch has cached the injury lists for 2022-23 to 2024-25 (first run after 00:00 UTC on 2026-10-25). |
+| L for v2-pre | | not run | Runs only if Gate I passes. |
+| D for v2+EWMA, v2-pre | | not run | |

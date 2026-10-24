@@ -1,10 +1,11 @@
-"""Fetch Premier League fixture lists and announced lineups from API-Football into the raw cache
-(data/raw/api_football/, gitignored), for the v2 lineup plan.
+"""Fetch Premier League fixture lists, injury lists and announced lineups from API-Football into the
+raw cache (data/raw/api_football/, gitignored), for the v2 lineup plan and its v2-pre variant.
 
-Season by season in the order given (default 2024-25, 2023-24, 2022-23: the seasons the free plan
-allows), round by round within a season. At most --budget live requests per run (default 90, under
-the free plan's 100 a day). Cached responses are never requested again, so rerunning continues where
-the last run stopped. Needs API_FOOTBALL_KEY; exits 2 if a request is refused.
+Fixture lists first, then each season's injury list (one request per page), then lineups season by
+season in the order given (default 2024-25, 2023-24, 2022-23: the seasons the free plan allows),
+round by round within a season. At most --budget live requests per run (default 90, under the free
+plan's 100 a day). Cached responses are never requested again, so rerunning continues where the last
+run stopped. Needs API_FOOTBALL_KEY; exits 2 if a request is refused.
 Run from the project root: python -m scripts.fetch_lineups [--budget 90] [--seasons 2024 2023 2022]
 """
 
@@ -13,6 +14,7 @@ import sys
 from datetime import datetime, timezone
 
 from src.api_football import ApiFootballError, fetch_missing
+from src.injuries import injury_requests
 from src.lineups import fetch_order, fixtures_request, lineup_request, load_fixtures
 
 DEFAULT_SEASONS = [2024, 2023, 2022]
@@ -31,13 +33,17 @@ def main(argv: list[str]) -> int:
     print(f"{datetime.now(timezone.utc):%Y-%m-%d %H:%M}Z fetch_lineups, budget {args.budget}")
     try:
         listed, _ = fetch_missing([fixtures_request(season) for season in args.seasons], args.budget)
+        injuries, _ = fetch_missing(injury_requests(args.seasons), args.budget - listed)
+        pages, _ = fetch_missing(injury_requests(args.seasons), args.budget - listed - injuries)  # pages 2..n
         order = fetch_order(load_fixtures(args.seasons), args.seasons)
-        fetched, missing = fetch_missing([lineup_request(fixture_id) for fixture_id in order], args.budget - listed)
+        fetched, missing = fetch_missing([lineup_request(fixture_id) for fixture_id in order],
+                                         args.budget - listed - injuries - pages)
     except ApiFootballError as error:
         print(error)
         print("Everything fetched before the refusal is cached; rerun later to continue.")
         return 2
-    print(f"Fixture lists fetched: {listed}. Lineups fetched: {fetched}; still missing: {missing} of {len(order)}.")
+    print(f"Fixture lists fetched: {listed}. Injury list pages fetched: {injuries + pages}. "
+          f"Lineups fetched: {fetched}; still missing: {missing} of {len(order)}.")
     return 0
 
 
