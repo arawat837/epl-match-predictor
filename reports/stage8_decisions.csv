@@ -1,0 +1,5 @@
+step,groups,lambda,beats_base_tuning,beats_base_reporting,reporting_seasons_won,decision
+1,suspension,0.1,False,False,0 of 5,not adopted
+2,suspension + squad_value,0.1,False,False,3 of 5,not adopted
+3,suspension + squad_value + form,0.1,False,False,2 of 5,not adopted
+4,suspension + squad_value + form + recent_absence,0.1,False,False,4 of 5,not adopted

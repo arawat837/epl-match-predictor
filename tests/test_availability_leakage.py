@@ -13,11 +13,14 @@ import pandas as pd
 import pytest
 
 import src.availability as availability
-from src.availability import build_availability, unavailable_at_kickoff
+import src.availability_features as availability_features
+from src.availability import History, build_availability, squad_list, unavailable_at_kickoff
+from src.availability_features import build_availability_features
 from src.fpl import FPL_DIR, load_fpl
 from src.name_maps import link_rows, load_overrides, team_name_map
 from src.splits import load_evaluation_matches
 from scripts.audit_availability import AVAILABILITY_PATH
+from scripts.evaluate_availability import FEATURES_PATH as STAGE8_PATH
 
 pytestmark = pytest.mark.skipif(
     not (AVAILABILITY_PATH.exists() and FPL_DIR.exists()),
@@ -113,6 +116,61 @@ def test_planted_leak_is_caught(patch, linked, matches, sample, monkeypatch):
 def spells_unavailable_including_same_day(spells: pd.DataFrame, date: pd.Timestamp) -> set[object]:
     started = spells["start"] <= date
     return set(spells.loc[started & (spells["end"].isna() | (spells["end"] > date)), "player"])
+
+
+def test_scrambling_the_matchs_own_minutes_leaves_its_squad_list_unchanged(linked, matches, sample):
+    original = History.build(linked, matches)
+    for target in sample[:PLANTED_SAMPLE]:
+        match = matches.loc[target]
+        own = (linked["date"] == match["date"]) & (linked["home"] == match["home"]) & (linked["away"] == match["away"])
+        scrambled = History.build(linked.assign(minutes=linked["minutes"].where(~own, 9999)), matches)
+        for side in ("home", "away"):
+            assert squad_list(scrambled, match[side], match["date"]) == squad_list(original, match[side], match["date"])
+
+
+needs_stage8 = pytest.mark.skipif(not STAGE8_PATH.exists(), reason="run `python -m scripts.evaluate_availability` first")
+
+
+@pytest.fixture(scope="module")
+def stage8() -> pd.DataFrame:
+    return pd.read_parquet(STAGE8_PATH)
+
+
+@pytest.fixture(scope="module")
+def stage8_sample(stage8: pd.DataFrame) -> list[int]:
+    return random.Random(SEED).sample(list(stage8.index), SAMPLE_SIZE)
+
+
+def rebuild_stage8(linked: pd.DataFrame, matches: pd.DataFrame, target: int) -> pd.Series:
+    rows, earlier = earlier_plus_scrambled(linked, matches, target)
+    return build_availability_features(rows, earlier, only=[target]).loc[target]
+
+
+@needs_stage8
+@pytest.mark.parametrize("draw", range(SAMPLE_SIZE))
+def test_stage8_features_use_only_earlier_rows_and_not_the_matchs_own(draw, linked, matches, stage8, stage8_sample):
+    target = stage8_sample[draw]
+    assert differing(rebuild_stage8(linked, matches, target), stage8.loc[target]) == []
+
+
+def caught_stage8(linked: pd.DataFrame, matches: pd.DataFrame, targets: list[int]) -> int:
+    full = build_availability_features(linked, matches, only=targets)
+    return sum(bool(differing(rebuild_stage8(linked, matches, target), full.loc[target])) for target in targets)
+
+
+def absence_from_this_match(prior: pd.DataFrame, date: pd.Timestamp) -> pd.Timestamp:
+    return date
+
+
+@needs_stage8
+@pytest.mark.parametrize("module, patch", [(availability_features, ("absence_match_date", absence_from_this_match)),
+                                           (availability, ("snapshot_cutoff", every_snapshot))],
+                         ids=["recent_absence from match t's own minutes", "squad value snapshot after the match"])
+def test_stage8_planted_leak_is_caught(module, patch, linked, matches, stage8, monkeypatch):
+    with_absence = stage8.index[stage8["home_recent_absence"].notna() & stage8["away_recent_absence"].notna()]
+    targets = random.Random(SEED).sample(list(with_absence), PLANTED_SAMPLE)
+    monkeypatch.setattr(module, *patch)
+    assert caught_stage8(linked, matches, targets) >= PLANTED_SAMPLE // 2
 
 
 @pytest.mark.parametrize("rule, leaks", [(unavailable_at_kickoff, False), (spells_unavailable_including_same_day, True)],

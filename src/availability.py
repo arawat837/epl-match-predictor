@@ -143,6 +143,11 @@ def weighted_mean(rows: pd.DataFrame, column: str) -> float:
     return float((minutes * rows[column].astype(float)).sum() / total) if total > 0 else float("nan")
 
 
+def squad_list(history: History, team: str, date: pd.Timestamp) -> list[object]:
+    """The squad list as of `date`: who FPL lists for the team in that fixture (identity only)."""
+    return sorted(history.rows_for(team, pd.Series([date]))["player"])
+
+
 def value_sum(history: History, players: list[object], date: pd.Timestamp) -> tuple[float, int]:
     """(sum of latest prices before `date`, how many players had one); NaN sum if none did."""
     prices = [price for price in (history.latest_price(player, date) for player in players) if not np.isnan(price)]
@@ -154,7 +159,7 @@ def team_values(history: History, team: str, date: pd.Timestamp) -> dict[str, ob
     prior = prior_matches(history.schedules.get(team, pd.DataFrame(columns=["date", "season", "match_number"])), date)
     key_window, form_window = prior.tail(KEY_WINDOW), prior.tail(FORM_WINDOW)
     keys = key_players(history.rows_for(team, key_window["date"]))
-    squad = sorted(history.rows_for(team, pd.Series([date]))["player"])  # squad list as of the match date
+    squad = squad_list(history, team, date)
     reds, yellows = suspended(history, team, prior.iloc[-1]) if not prior.empty else ([], [])
     form_rows = history.rows_for(team, form_window["date"])
     squad_value, squad_priced = value_sum(history, squad, date)

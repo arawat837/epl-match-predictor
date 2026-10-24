@@ -5,8 +5,8 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 
 ## Stack and environment
 - Python 3.11+ (use `py -3.12`; `python` is not on PATH on this machine).
-- Libraries: numpy, pandas, pyarrow (parquet), scikit-learn, xgboost, matplotlib, streamlit,
-  pytest. Nothing else without asking.
+- Libraries: numpy, pandas, pyarrow (parquet), scikit-learn, scipy (optimize, Stage 8), xgboost,
+  matplotlib, streamlit, pytest. Nothing else without asking.
 - Always work in the project venv: `py -3.12 -m venv .venv`, then `.venv\Scripts\Activate.ps1`.
 - All dependencies pinned in `requirements.txt`. Add a package there before importing it.
 
@@ -24,7 +24,9 @@ These rules apply for the whole project. If a rule blocks something, stop and as
   report once on 2020-21..2024-25, writes `reports/stage6_*.csv`, exits 1 if the tripwire fires)
 - Availability audit: `.venv\Scripts\python -m scripts.audit_availability` (FPL archive cached in
   `data/raw/fpl/`, coverage report, writes `data/processed/availability.parquet`; audit only)
-- Tests: `.venv\Scripts\python -m pytest` (about a minute; leakage and model fold tests are most of it)
+- Stage 8 evaluation: `.venv\Scripts\python -m scripts.evaluate_availability` (gating check, builds
+  `data/processed/availability_features.parquet`, offset-model steps, writes `reports/stage8_*.csv`)
+- Tests: `.venv\Scripts\python -m pytest` (about two minutes; leakage and model fold tests are most of it)
 
 ## Data leakage rules (non-negotiable)
 - Never use random `train_test_split` or shuffled K-fold. Every split is by date.
@@ -133,6 +135,24 @@ These rules apply for the whole project. If a rule blocks something, stop and as
   didn't play; 9 of 10 hand-checked bans right (misses: bans served in cups, rescinded reds).
 - No injury source exists; `unavailable_at_kickoff` implements the rule for a future one.
 
+## Availability features (Stage 8; evaluated, none adopted)
+- Gating check passed: FPL lists the whole registered squad per fixture (29-39 players per team per
+  match, 51-61% with 0 minutes), so the squad list is the fixture listing, identity only
+  (`availability.squad_list`). The new features don't use the listing at all.
+- `src/availability_features.py`: suspension (banned players' share of last-10 minutes), squad_value
+  (key-player FPL price sum / league mean as of the date over the season's teams seen so far; a
+  full-season mean would look ahead), form_bps / form_ict, recent_absence (INJURY PROXY: key set over
+  t-11..t-2, share of its minutes from players with 0 minutes in t-1; NaN for a team's first 5 matches
+  of a season). Each as home_X, away_X, X_diff.
+- `src/offset.py`: logits = log p_base + X W (draw column 0), mean log loss + lambda * sum(W**2), L-BFGS;
+  X standardised on the training window, NaN -> 0. Base = frozen Stage 6 compact logistic with tuned
+  Elo, out-of-sample from 2016-17. Offset trains on 2016-17..S-1; tuning 2017-18..2019-20, reporting
+  2020-21..2024-25; lambda from {0.001, 0.003, 0.01, 0.03, 0.1} on tuning seasons only.
+- Pre-registered rule (beat base on tuning, on reporting pooled, and in >= 3 of 5 reporting seasons):
+  no group adopted. Lambda chose 0.1, the strongest shrinkage, at every step. Robustness B (compact
+  logistic with vs without, windows from 2016-17): with is worse. Don't revisit these features using
+  reporting results.
+
 ## Metrics and reporting
 - Report log loss and ranked probability score (RPS, outcome order H, D, A) first; accuracy second.
 - Every result is shown next to baselines on the same matches:
@@ -163,9 +183,10 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 5. Models: multinomial logistic regression, then XGBoost
 6. Honest tuning: Elo grid, compact logistic, compact XGBoost (tune/report split)
 7. Availability and form data audit (FPL archive; no modelling)
-8. Reporting: metric tables, calibration and per-season plots
-9. Streamlit app
-10. Holdout evaluation (only when the user says so)
+8. Availability and form features on an offset model (pre-registered rule; none adopted)
+9. Reporting: metric tables, calibration and per-season plots
+10. Streamlit app
+11. Holdout evaluation (only when the user says so)
 
 ## Data
 - Source: football-data.co.uk EPL files, `mmz4281/{code}/E0.csv`, 2005-06 to the current season.
@@ -203,7 +224,10 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 │   ├── fpl.py                 # FPL archive download/cache and per-season loading (no xP)
 │   ├── name_maps.py           # FPL team names -> clubs, FPL rows -> matches, link rate
 │   ├── availability.py        # point-in-time bans, key players, squad value, form
-│   ├── audit.py               # Stage 7 coverage report and ban check (audit only)
+│   ├── audit.py               # Stage 7 coverage report, ban check, Stage 8 gating check
+│   ├── availability_features.py # Stage 8 suspension, squad value, form, recent absence
+│   ├── offset.py              # offset model on frozen base probabilities
+│   ├── experiments.py         # Stage 8 protocol: base OOS, folds, lambda, decision rule
 │   ├── metrics.py             # log loss, RPS, accuracy
 │   ├── evaluate.py            # walk-forward runner, metric tables, leakage tripwire
 │   └── plots.py               # report figures (feature importance; calibration later)
@@ -213,7 +237,8 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 │   ├── build_features.py
 │   ├── evaluate_models.py
 │   ├── tune_models.py
-│   └── audit_availability.py
+│   ├── audit_availability.py
+│   └── evaluate_availability.py
 ├── app/
 │   └── streamlit_app.py *     # UI only; calls into src/
 ├── tests/                     # one test module per src module; conftest.py has synthetic seasons

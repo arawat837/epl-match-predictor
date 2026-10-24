@@ -36,6 +36,21 @@ def field_presence(rows: pd.DataFrame) -> pd.DataFrame:
     return present.reindex(seasons, fill_value=0.0)
 
 
+def squad_listing_check(linked: pd.DataFrame) -> pd.DataFrame:
+    """Per season: players FPL lists per team per match, the share of them with 0 minutes, and
+    the share of players whose first listing for a team (after its first match) is one they
+    played in, i.e. who may have been added to FPL because they played."""
+    per_match = linked.groupby(["season", "date", "team"]).agg(
+        listed=("player", "nunique"), zero_minutes=("minutes", lambda minutes: (minutes == 0).mean()))
+    first = linked.sort_values("date").groupby(["season", "team", "player"]).head(1)
+    opening = linked.groupby(["season", "team"])["date"].transform("min")
+    first = first[first["date"] > opening.loc[first.index]]
+    by_season = per_match.groupby("season").agg(listed_mean=("listed", "mean"), listed_min=("listed", "min"),
+                                                 listed_max=("listed", "max"), zero_minute_share=("zero_minutes", "mean"))
+    by_season["late_first_listing_played"] = first.groupby("season")["minutes"].apply(lambda minutes: (minutes > 0).mean())
+    return by_season
+
+
 def ban_outcomes(availability: pd.DataFrame, linked: pd.DataFrame) -> pd.DataFrame:
     """Every predicted ban with what happened in the banned match: did not play, played, or
     not listed for the team (left, loaned, or not registered)."""
