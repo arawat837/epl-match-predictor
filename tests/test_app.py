@@ -44,6 +44,7 @@ def test_app_runs_offline_for_any_two_teams_and_shows_limits(no_network):
     assert not app.exception
     text = " ".join(block.value for block in app.markdown)
     assert "Limits" in text and "No injury" in text and "Forward-test record" in text
+    assert "seasons used in tuning" in text and "2025-26 holdout" in text and "a season is 380 matches" in text
     assert any("log(p_home / p_away)" in caption.value for caption in app.caption)
 
 

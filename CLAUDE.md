@@ -178,7 +178,7 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 
 ## Holdout result (Stage 10; evaluated once, 2026-10-24, commit bd77453)
 - 2025-26: 380 matches, last 2026-05-24. Final model fitted once on 2006-07..2024-25.
-  Log loss 1.0271, RPS 0.2090, accuracy 48.7%. Bookmaker 1.0185 / 0.2057 / 49.0%; base rate
+  Log loss 1.0271, RPS 0.2090, accuracy 48.7%. Bookmaker 1.0185 / 0.2057 / 48.9%; base rate
   1.0820; original untuned Elo-only 1.0278. Model minus bookmaker +0.0085 (SE 0.0081); minus
   Elo-only -0.0007 (SE 0.0033). The model never predicts a draw.
 - Versus the 0.9818 reporting average: +0.045, 1.95 per-match standard errors (SE 0.0233), just
@@ -193,13 +193,22 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 - `data/forward/predictions_log.csv` is append-only: never edit or delete rows. Past kickoffs are
   refused; a logged fixture gets a new row only when its `inputs_hash` changes. The first 9 rows
   (2026-10-24) were logged before the Stage 11 code was committed, so their `git_commit` is the
-  Stage 10 commit; the code that produced them is in the Stage 11 commit.
+  Stage 10 commit (9ba08a2). Provenance check (Stage 11b): `git diff 9ba08a2 84320e1 -- src config`
+  changes no config and no existing function's behaviour (LogisticModel.__call__ split into fit +
+  __call__, same steps; plots/forward/explain/app_support only add code). Recomputing all 9 with
+  the committed code 84320e1, before any new result arrived: inputs unchanged, maximum absolute
+  probability difference 0.0 (bit-identical).
 - Scoring uses each played match's latest prediction made before its actual kickoff (football-data
   Date + Time) against the bookmaker odds in the same results file; below 100 matches it says
   "too few matches to conclude".
 - `app/app.py` (UI only) with `src/explain.py`: contribution = (w_H - w_A) x standardised feature;
-  intercept + contributions = log(p_H / p_A) exactly. Limits panel and confidence label read the
-  Stage 9/10 reports; no network call anywhere in the app.
+  intercept + contributions = log(p_H / p_A) exactly. No network call anywhere in the app.
+- App labels (Stage 11b): every accuracy is read from reports/ by `src/app_support.py` and shown
+  with its match count; `app/app.py` holds no accuracy figures (grep test). Limits: seasons used in
+  tuning (2016-17..2024-25, Stage 9), the 2025-26 holdout (model and bookmaker, Stage 10), the
+  forward record (`reports/forward_score.csv`), and the season-variation note. Confidence label
+  above 0.60: pooled figure marked "includes seasons the model was tuned on", plus the holdout
+  figure only if it has at least 100 matches, else "holdout: too few matches (n=...)".
 
 ## Metrics and reporting
 - Report log loss and ranked probability score (RPS, outcome order H, D, A) first; accuracy second.

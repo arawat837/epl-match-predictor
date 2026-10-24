@@ -1,8 +1,9 @@
 """Streamlit app for the frozen final model. UI only; all logic lives in src/.
 
 Run from the project root: .venv\\Scripts\\streamlit run app/app.py
-Works offline from data/processed/matches.parquet, the cached results file,
-data/forward/predictions_log.csv and reports/; it makes no network call.
+Works offline from data/processed/matches.parquet, data/forward/predictions_log.csv and
+reports/; it makes no network call. Every accuracy shown is read from reports/ by
+src/app_support.py and carries its match count; none is written here.
 """
 
 import sys
@@ -13,12 +14,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # the project r
 import pandas as pd
 import streamlit as st
 
-from src.app_support import (confidence_lookup, equal_coverage_comparison, historical_accuracy,
-                             latest_season_teams, upcoming_fixtures)
+from src.app_support import (confidence_label, equal_coverage_comparison, latest_season_teams, limits_lines,
+                             upcoming_fixtures)
 from src.explain import contributions, home_minus_away_weights, logit_difference
 from src.final_model import elo_params, load_config, predictor
-from src.forward import (UK, actual_kickoffs, fixture_features, fixture_row, forecast, forward_summary,
-                         load_played_matches, read_log, scoreable, season_pipeline, training_table)
+from src.forward import (UK, fixture_features, fixture_row, forecast, load_played_matches, read_log,
+                         season_pipeline, training_table)
 from src.plots import contribution_bars, probability_bars
 from src.seasons import current_season, season_label
 
@@ -48,13 +49,6 @@ def final_model() -> tuple:
 def features_for(home: str, away: str, kickoff: str) -> pd.Series:
     elo, _, _ = final_model()
     return fixture_features(played_matches(), fixture_row(home, away, pd.Timestamp(kickoff)), elo)
-
-
-@st.cache_data
-def forward_record() -> tuple[pd.DataFrame, str]:
-    start_year = current_season()
-    scored = scoreable(prediction_log(), played_matches(), actual_kickoffs(start_year), season_label(start_year))
-    return forward_summary(scored)
 
 
 def form_table(features: pd.Series, home: str, away: str) -> pd.DataFrame:
@@ -104,12 +98,8 @@ with left:
 with right:
     top = float(probabilities.max())
     st.metric("Top probability", f"{top:.0%}")
-    history = confidence_lookup(top)
-    if history:
-        st.write(f"When the model's top probability was above {history['threshold']:.2f}, it was right "
-                 f"{history['accuracy']:.0%} of the time ({history['matches']} matches, 2016-17 to 2024-25).")
-    else:
-        st.write("Top probability is 0.60 or below: a low-confidence match.")
+    for line in confidence_label(top):
+        st.write(line)
     if choice is not None:
         st.caption(f"Logged {choice['predicted_at']}: H {choice['p_home']:.0%}, D {choice['p_draw']:.0%}, "
                    f"A {choice['p_away']:.0%}")
@@ -132,13 +122,8 @@ st.caption(f"Contribution = coefficient x standardised feature value. Intercept 
 
 with st.container(border=True):
     st.markdown("### Limits")
-    correct, matches = historical_accuracy()
-    st.markdown(
-        f"- No injury, suspension or lineup data: the model only knows results and match statistics.\n"
-        f"- Accuracy across all matches is about {correct / matches:.0%} ({correct} of {matches}, 2016-17 to 2025-26).\n"
-        "- The bookmaker is ahead at equal confidence (each side's own most confident matches, 2016-17 to 2024-25):")
+    st.markdown("\n".join(f"- {line}" for line in limits_lines()))
+    st.markdown("- The bookmaker is ahead at equal confidence (each side's own most confident matches, seasons "
+                "used in tuning; accuracy as a fraction):")
     st.dataframe(equal_coverage_comparison().round(3), hide_index=True)
-    record, verdict = forward_record()
-    st.markdown(f"- Forward-test record so far: {verdict}")
-    if not record.empty:
-        st.dataframe(record.round(4), hide_index=True)
+    st.caption("The forward-test record is read from reports/forward_score.csv; run scripts.score_forward to update it.")
