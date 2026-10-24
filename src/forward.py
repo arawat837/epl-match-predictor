@@ -13,6 +13,7 @@ import hashlib
 import io
 from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
@@ -35,7 +36,7 @@ LOG_PATH = FORWARD_DIR / "predictions_log.csv"
 FIXTURES_URL = "https://www.football-data.co.uk/fixtures.csv"
 LOG_COLUMNS = ["predicted_at", "kickoff", "home", "away", "p_home", "p_draw", "p_away",
                "inputs_hash", "git_commit", "config_hash"]
-UK = "Europe/London"
+UK = ZoneInfo("Europe/London")  # UK clock rules (BST/GMT), never a fixed offset
 PLACEHOLDER = {"FTHG": 0, "FTAG": 0, "result": "D", "HS": 0, "AS": 0, "HST": 0, "AST": 0}
 MIN_MATCHES_TO_CONCLUDE = 100
 
@@ -54,7 +55,8 @@ def season_of(day: pd.Timestamp) -> str:
 
 
 def uk_kickoff(dates: pd.Series, times: pd.Series) -> pd.Series:
-    """UTC kickoff from football-data's day-first date and UK local time (midnight if no time)."""
+    """UTC kickoff from football-data's day-first date and UK local time (midnight if no time).
+    A local time that occurs twice when clocks go back raises rather than being guessed."""
     local = pd.to_datetime(dates + " " + times.fillna("00:00"), format="%d/%m/%Y %H:%M")
     return local.dt.tz_localize(UK).dt.tz_convert("UTC")
 

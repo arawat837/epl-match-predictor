@@ -83,6 +83,64 @@ def test_fixtures_file_is_read_as_premier_league_rows_with_utc_kickoffs():
     assert fixtures["kickoff"].tolist() == [pd.Timestamp("2026-10-24T11:30:00Z"), pd.Timestamp("2026-12-26T15:00:00Z")]
 
 
+CLOCK_CHANGE_FIXTURES = ("Div,Date,Time,HomeTeam,AwayTeam\n"
+                         "E0,24/10/2026,12:30,Aston Villa,Man City\n"
+                         "E0,24/10/2026,15:00,Arsenal,Everton\n"
+                         "E0,24/10/2026,17:30,Chelsea,Tottenham\n"
+                         "E0,25/10/2026,00:30,Burnley,Wolves\n"  # still BST: clocks go back at 02:00
+                         "E0,25/10/2026,03:00,Leeds,Fulham\n"  # already GMT
+                         "E0,25/10/2026,14:00,Crystal Palace,Newcastle\n"
+                         "E0,25/10/2026,16:30,Sunderland,Leeds\n").encode()
+
+
+def test_uk_times_use_the_london_zone_on_both_sides_of_the_clock_change():
+    from zoneinfo import ZoneInfo
+    from src.forward import UK
+
+    assert UK == ZoneInfo("Europe/London")
+    kickoffs = parse_fixtures(CLOCK_CHANGE_FIXTURES)["kickoff"]
+    assert [kickoff.isoformat() for kickoff in kickoffs] == [
+        "2026-10-24T11:30:00+00:00",  # Saturday 12:30 BST = UTC+1
+        "2026-10-24T14:00:00+00:00",
+        "2026-10-24T16:30:00+00:00",
+        "2026-10-24T23:30:00+00:00",  # Sunday 00:30 BST is still Saturday in UTC
+        "2026-10-25T03:00:00+00:00",  # Sunday 03:00 GMT = UTC+0
+        "2026-10-25T14:00:00+00:00",  # Sunday 14:00 GMT
+        "2026-10-25T16:30:00+00:00",
+    ]
+    assert [kickoff.tz_convert(UK).strftime("%d %H:%M") for kickoff in kickoffs] == [
+        "24 12:30", "24 15:00", "24 17:30", "25 00:30", "25 03:00", "25 14:00", "25 16:30"]
+
+
+def test_fixture_date_is_the_uk_calendar_date_across_the_change():
+    late_saturday_utc = parse_fixtures(CLOCK_CHANGE_FIXTURES)["kickoff"].iloc[3]  # 23:30Z on the 24th
+    assert fixture_row("Burnley", "Wolverhampton Wanderers", late_saturday_utc)["date"].iloc[0] == pd.Timestamp("2026-10-25")
+
+
+def test_an_ambiguous_local_time_raises_instead_of_guessing():
+    with pytest.raises(Exception, match="(?i)ambiguous"):
+        parse_fixtures(b"Div,Date,Time,HomeTeam,AwayTeam\nE0,25/10/2026,01:30,Arsenal,Everton\n")
+
+
+@pytest.mark.parametrize("now, refused", [
+    ("2026-10-25T13:00:00Z", False),  # when a UTC+1 mistake would think kickoff had come
+    ("2026-10-25T13:59:59Z", False),
+    ("2026-10-25T14:00:00Z", True),  # Sunday 14:00 UK is 14:00Z
+    ("2026-10-25T14:00:01Z", True),
+])
+def test_logging_around_sundays_1400z_kickoff(tmp_path, now, refused):
+    fixture = parse_fixtures(CLOCK_CHANGE_FIXTURES).iloc[5]  # Crystal Palace v Newcastle, Sunday 14:00 UK
+    rows = log_rows(("2026-10-25T09:00:00+00:00", fixture["kickoff"].isoformat(), fixture["home"], fixture["away"]))
+    path = tmp_path / "log.csv"
+    moment = pd.Timestamp(now).to_pydatetime()
+    if refused:
+        with pytest.raises(PastKickoffError):
+            append_log(rows, moment, path)
+        assert not path.exists()
+    else:
+        assert append_log(rows, moment, path) == 1
+
+
 def test_inputs_hash_changes_only_with_the_inputs():
     features = pd.Series({"a": 1.0, "b": np.nan})
     assert inputs_hash(features, ["a", "b"]) == inputs_hash(features.copy(), ["a", "b"])

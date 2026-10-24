@@ -198,6 +198,9 @@ These rules apply for the whole project. If a rule blocks something, stop and as
   __call__, same steps; plots/forward/explain/app_support only add code). Recomputing all 9 with
   the committed code 84320e1, before any new result arrived: inputs unchanged, maximum absolute
   probability difference 0.0 (bit-identical).
+- Times: football-data's local times are UK wall-clock, converted with `ZoneInfo("Europe/London")`
+  (never a fixed offset); an ambiguous clock-change hour raises. Checked 2026-10-24: all 9 logged
+  kickoffs are correct (Saturday UTC+1, Sunday 25 Oct UTC+0 after clocks went back).
 - Scoring uses each played match's latest prediction made before its actual kickoff (football-data
   Date + Time) against the bookmaker odds in the same results file; below 100 matches it says
   "too few matches to conclude".
