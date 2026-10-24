@@ -28,6 +28,9 @@ These rules apply for the whole project. If a rule blocks something, stop and as
   `data/processed/availability_features.parquet`, offset-model steps, writes `reports/stage8_*.csv`)
 - Stage 9 analysis: `.venv\Scripts\python -m scripts.analyse_final_model` (calibration test,
   reliability, confidence vs bookmaker; writes `reports/stage9_*`)
+- Holdout (ALREADY RUN ONCE, do not rerun): `.venv\Scripts\python -m scripts.evaluate_holdout --unlock-holdout`
+  refuses without the flag, aborts if the config differs from `pre-holdout-config`, and refuses a
+  second run without `--rerun-reason` (genuine bug fixes only; never model, feature or parameter changes)
 - Tests: `.venv\Scripts\python -m pytest` (about two minutes; leakage and model fold tests are most of it)
 
 ## Data leakage rules (non-negotiable)
@@ -168,6 +171,16 @@ These rules apply for the whole project. If a rule blocks something, stop and as
   80.4% correct vs bookmaker's own most confident 10% 81.0%; 20%: 73.7% vs 76.2%; 30%: 71.8% vs 75.2%.
   Per-season subsets are under 100 matches, so only pooled figures are reliable.
 
+## Holdout result (Stage 10; evaluated once, 2026-10-24, commit bd77453)
+- 2025-26: 380 matches, last 2026-05-24. Final model fitted once on 2006-07..2024-25.
+  Log loss 1.0271, RPS 0.2090, accuracy 48.7%. Bookmaker 1.0185 / 0.2057 / 49.0%; base rate
+  1.0820; original untuned Elo-only 1.0278. Model minus bookmaker +0.0085 (SE 0.0081); minus
+  Elo-only -0.0007 (SE 0.0033). The model never predicts a draw.
+- Versus the 0.9818 reporting average: +0.045, 1.95 per-match standard errors (SE 0.0233), just
+  inside the noise of one 380-match season; the bookmaker was also at its worst in that window.
+- The holdout is now spent. The config stays frozen; any new model needs a fresh untouched season
+  (e.g. 2026-27 once complete) for an unbiased test. Records: `reports/stage10_*`.
+
 ## Metrics and reporting
 - Report log loss and ranked probability score (RPS, outcome order H, D, A) first; accuracy second.
 - Every result is shown next to baselines on the same matches:
@@ -200,8 +213,8 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 7. Availability and form data audit (FPL archive; no modelling)
 8. Availability and form features on an offset model (pre-registered rule; none adopted)
 9. Freeze the final model, calibration test, reliability, confidence analysis
-10. Streamlit app
-11. Holdout evaluation (only when the user says so)
+10. Holdout evaluation (done once; see Holdout result)
+11. Streamlit app
 
 ## Data
 - Source: football-data.co.uk EPL files, `mmz4281/{code}/E0.csv`, 2005-06 to the current season.
@@ -248,6 +261,7 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 │   ├── final_model.py         # loads config/final_model.json, builds the final predictor
 │   ├── calibration.py         # temperature scaling fitted on the previous season
 │   ├── confidence.py          # reliability deciles, confidence subsets vs bookmaker
+│   ├── holdout.py             # Stage 10 holdout fold, unlock and frozen-config guards
 │   ├── metrics.py             # log loss, RPS, accuracy
 │   ├── evaluate.py            # walk-forward runner, metric tables, leakage tripwire
 │   └── plots.py               # report figures (feature importance; calibration later)
@@ -259,7 +273,8 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 │   ├── tune_models.py
 │   ├── audit_availability.py
 │   ├── evaluate_availability.py
-│   └── analyse_final_model.py
+│   ├── analyse_final_model.py
+│   └── evaluate_holdout.py
 ├── app/
 │   └── streamlit_app.py *     # UI only; calls into src/
 ├── tests/                     # one test module per src module; conftest.py has synthetic seasons

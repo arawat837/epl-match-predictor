@@ -1,0 +1,14 @@
+[
+  {
+    "timestamp": "2026-10-24T00:38:56+00:00",
+    "git_commit": "bd77453506cd223cfb9a5d25bc094f50c93f8064",
+    "working_tree_clean": true,
+    "config_sha256": "225b2fcd1a71a56b2453fcfc67705807983de651d760c2b424f19f421fada1c7",
+    "config_matches_tag": "pre-holdout-config",
+    "reason": "first run",
+    "holdout_matches": 380,
+    "last_match_date": "2026-05-24",
+    "outcome": "reported",
+    "final_model_log_loss": 1.0270777897529393
+  }
+]
