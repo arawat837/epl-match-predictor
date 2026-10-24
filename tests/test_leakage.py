@@ -2,8 +2,9 @@
 
 For a stratified sample of 50 matches, the features are rebuilt from a table holding only
 matches dated strictly before that match, plus the match itself with its goals, result and
-shots replaced by values no real match has. If a feature read anything from the same day or
-later, or from the match's own stats, the rebuilt value would differ from the stored one.
+shots replaced by values that differ from the real ones (the result is flipped, so both sides'
+points change too). If a feature read anything from the same day or later, or from the match's
+own stats, the rebuilt value would differ from the stored one.
 The sample always includes the rare cases where defaults and spell breaks apply (season
 openers, the first 3 matchweeks, promoted sides' first 5 matches, matches after a gap of over
 200 days); the rest is random.

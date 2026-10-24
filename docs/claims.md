@@ -154,9 +154,9 @@ the commit-message note.
 | 118 | 10 | `reports/planted_leaks.csv` | `stage=4 features; check=days rest measured to the next match -> targeted_cases` | `d` |
 | 119 | 0 | `reports/planted_leaks.csv` | `stage=4 features; check=days rest measured to the next match -> real_code_targeted_flagged` | `d` |
 | 120 | 10 | `reports/planted_leaks.csv` | `stage=4 features; check=days rest measured to the next match -> targeted_cases` | `d` |
-| 121 | 8 | `reports/planted_leaks.csv` | `stage=4 features; check=season PPG includes this match -> random_flagged` | `d` |
+| 121 | 10 | `reports/planted_leaks.csv` | `stage=4 features; check=season PPG includes this match -> random_flagged` | `d` |
 | 122 | 10 | `reports/planted_leaks.csv` | `stage=4 features; check=season PPG includes this match -> random_cases` | `d` |
-| 123 | 7 | `reports/planted_leaks.csv` | `stage=4 features; check=season PPG includes this match -> targeted_flagged` | `d` |
+| 123 | 10 | `reports/planted_leaks.csv` | `stage=4 features; check=season PPG includes this match -> targeted_flagged` | `d` |
 | 124 | 10 | `reports/planted_leaks.csv` | `stage=4 features; check=season PPG includes this match -> targeted_cases` | `d` |
 | 125 | 0 | `reports/planted_leaks.csv` | `stage=4 features; check=season PPG includes this match -> real_code_targeted_flagged` | `d` |
 | 126 | 10 | `reports/planted_leaks.csv` | `stage=4 features; check=season PPG includes this match -> targeted_cases` | `d` |

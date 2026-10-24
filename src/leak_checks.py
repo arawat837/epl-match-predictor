@@ -1,9 +1,10 @@
 """Leakage checks and the planted leaks that prove they can fail.
 
 A check rebuilds a match's values from rows dated strictly before it, plus the match's own
-rows with every value replaced by an impossible one, and flags the match if the rebuilt
-values differ from the stored ones. For a planted leak, the leaky code builds both the stored
-table and the rebuild, as if the leak were in src/; the real code is never changed on disk.
+rows with every value replaced by one that differs from the real value (for match stats, the
+result is flipped as well), and flags the match if the rebuilt values differ from the stored
+ones. For a planted leak, the leaky code builds both the stored table and the rebuild, as if the
+leak were in src/; the real code is never changed on disk.
 """
 
 from collections.abc import Callable, Iterator
@@ -22,7 +23,7 @@ from src.fpl import load_fpl
 from src.name_maps import link_rows, load_overrides, team_name_map
 
 MATCH_KEY = ["date", "home", "away"]
-SCRAMBLED = {"FTHG": 0, "FTAG": 9, "result": "A", "HS": 99, "AS": 99, "HST": 99, "AST": 99}
+SCRAMBLED_SHOTS = {"HS": 99, "AS": 99, "HST": 99, "AST": 99}  # no real match has 99 shots
 IMPOSSIBLE = {"minutes": 9999, "yellow_cards": 9, "red_cards": 9, "bps": 999, "ict_index": 999.0, "price": 999.0}
 LIST_COLUMNS = ["banned_red", "banned_yellow", "key_players"]
 
@@ -40,10 +41,25 @@ def planted(module: ModuleType, name: str, leaky: Callable) -> Iterator[None]:
 
 # ---------- Stage 4 features ----------
 
+def scrambled_stats(home_goals: int, away_goals: int) -> dict[str, object]:
+    """Stats for a match's own row that differ from the real ones in every column. The result is
+    flipped, so both sides' points change: an away win becomes a home win (away goals + 9 to 0),
+    a home win becomes an away win (0 to home goals + 9) and a draw d-d becomes d+1 to d+9. Both
+    goal counts differ from the real ones, and shots are 99."""
+    if away_goals > home_goals:
+        goals, result = (away_goals + 9, 0), "H"
+    elif home_goals > away_goals:
+        goals, result = (0, home_goals + 9), "A"
+    else:
+        goals, result = (home_goals + 1, home_goals + 9), "A"
+    return {"FTHG": goals[0], "FTAG": goals[1], "result": result, **SCRAMBLED_SHOTS}
+
+
 def earlier_plus_scrambled(matches: pd.DataFrame, target: int) -> pd.DataFrame:
     """Every match dated strictly before `target`, then `target` with its own stats scrambled."""
     match = matches.loc[[target]].copy()
-    for column, value in SCRAMBLED.items():
+    real = match.loc[target]
+    for column, value in scrambled_stats(int(real["FTHG"]), int(real["FTAG"])).items():
         match.loc[target, column] = value
     earlier = matches[matches["date"] < match.loc[target, "date"]]
     return pd.concat([earlier, match])
@@ -111,8 +127,8 @@ def linked_fpl_rows(matches: pd.DataFrame) -> pd.DataFrame:
 
 def earlier_rows_plus_scrambled(linked: pd.DataFrame, matches: pd.DataFrame,
                                 target: int) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Rows and matches dated strictly before the target, plus the target with impossible values
-    (only who is listed survives, as the squad list as of that date)."""
+    """Rows and matches dated strictly before the target, plus the target's rows with impossible
+    values (only who is listed survives, as the squad list as of that date)."""
     match = matches.loc[target]
     own = linked[(linked["date"] == match["date"]) & (linked["home"] == match["home"])
                  & (linked["away"] == match["away"])].assign(**IMPOSSIBLE)

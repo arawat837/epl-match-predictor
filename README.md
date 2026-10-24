@@ -41,7 +41,7 @@ the holdout was evaluated.
   squad list as of that date; nothing from the match itself.
 - **Features use strictly earlier matches only**: rolling windows are shifted before rolling, Elo ratings are stored before
   each update, and a team returning after a missed season starts a new history.
-- **Rebuild tests**: sampled matches have their features rebuilt from earlier rows only, with the match's own rows replaced by impossible values; the rebuilt values must equal the stored ones (sample seed 2026). The Stage 4 sample of 50 is stratified: it always includes season openers, matches in the first 3 matchweeks, promoted sides' first 5 matches and matches after a gap of over 200 days, and the rest is random.
+- **Rebuild tests**: sampled matches have their features rebuilt from earlier rows only, with the match's own rows replaced by values that differ from the real ones (for match stats the result is flipped, so both sides' points change too); the rebuilt values must equal the stored ones (sample seed 2026). The Stage 4 sample of 50 is stratified: it always includes season openers, matches in the first 3 matchweeks, promoted sides' first 5 matches and matches after a gap of over 200 days, and the rest is random.
 - **Planted leaks**: each check makes the leaky code build both the stored table and the rebuild, so a real leak shows up
   as rebuilt values that differ. Each planted leak is checked on a random sample and on a sample targeted at the case
   where it first shows, and the real code is checked on the same targeted sample. Counts from
@@ -52,7 +52,7 @@ the holdout was evaluated.
 | 4 features | real code: rebuilt from earlier rows, own stats scrambled | 0 of 50 | stratified: season openers, first 3 matchweeks, promoted sides' first 5, after a 200-day gap | 0 of 50 | 0 of 50 |
 | 4 features | rolling window without shift(1) | 10 of 10 | third match of a spell | 10 of 10 | 0 of 10 |
 | 4 features | days rest measured to the next match | 10 of 10 | first match of a spell | 10 of 10 | 0 of 10 |
-| 4 features | season PPG includes this match | 8 of 10 | first match of a season | 7 of 10 | 0 of 10 |
+| 4 features | season PPG includes this match | 10 of 10 | first match of a season | 10 of 10 | 0 of 10 |
 | 4 features | Elo stores post-update ratings | 10 of 10 | first match of a season | 10 of 10 | 0 of 10 |
 | 4 features | spell break read from the next match | 0 of 10 | last match before a missed season | 33 of 33 | 0 of 33 |
 | 7 availability | real code: rebuilt from earlier rows, own rows scrambled | 0 of 50 | n/a | n/a | n/a |

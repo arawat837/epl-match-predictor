@@ -2,7 +2,7 @@ stage,check,random_cases,random_flagged,targeted_sample,targeted_cases,targeted_
 4 features,"real code: rebuilt from earlier rows, own stats scrambled",50,0,"stratified: season openers, first 3 matchweeks, promoted sides' first 5, after a 200-day gap",50,0,0
 4 features,rolling window without shift(1),10,10,third match of a spell,10,10,0
 4 features,days rest measured to the next match,10,10,first match of a spell,10,10,0
-4 features,season PPG includes this match,10,8,first match of a season,10,7,0
+4 features,season PPG includes this match,10,10,first match of a season,10,10,0
 4 features,Elo stores post-update ratings,10,10,first match of a season,10,10,0
 4 features,spell break read from the next match,10,0,last match before a missed season,33,33,0
 7 availability,"real code: rebuilt from earlier rows, own rows scrambled",50,0,,,,

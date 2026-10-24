@@ -102,7 +102,9 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 - 54 features: elo_home/elo_away/elo_diff, then home_X, away_X and X_diff (home minus away).
   `burn_in` flags the first season (kept, not a feature).
 - `tests/test_leakage.py` rebuilds 50 matches from rows dated strictly before them (plus the match
-  itself with its own stats scrambled) and requires identical features. The 50 are stratified
+  itself with its own stats scrambled: `leak_checks.scrambled_stats` flips the result, changes both
+  goal counts and sets shots to 99, so every own stat and both sides' points differ from the real
+  ones) and requires identical features. The 50 are stratified
   (`src/leak_samples.py`): at least 5 each of season openers, the first 3 matchweeks, promoted sides'
   first 5 matches and matches after a gap of over 200 days; the rest random.
 - Planted leaks (`src/leak_checks.py`, report in `src/leak_report.py`): each is checked on a random
