@@ -228,6 +228,19 @@ These rules apply for the whole project. If a rule blocks something, stop and as
   above 0.60: pooled figure marked "includes seasons the model was tuned on", plus the holdout
   figure only if it has at least 100 matches, else "holdout: too few matches (n=...)".
 
+## v2 lineup model (pre-registered plan; nothing built)
+- Plan: `docs/v2_lineup_plan.md`, committed under tag `v2-plan` before any lineup data was fetched.
+  v2 work never changes v1 (`config/final_model.json`) or its forward log.
+- Before any v2 code: the user approves the v2 prediction-time amendment (a v2 prediction is made
+  after both official XIs are published and before kickoff, and may use those XIs only), and the
+  plan's gates run in order (R, T, 0, L, D).
+- API-Football data is for personal research only: raw responses go in `data/raw/api_football/`
+  (gitignored) and are never committed or pushed, nor are features derived from them. The public
+  app shows v1 only until API-Football confirms in writing. The key lives in `API_FOOTBALL_KEY` or
+  `.streamlit/secrets.toml`, never in code, logs or reports.
+- No v2 result on 2026-27 is computed before the verdict (after the last matchday, unlock flag,
+  config tagged `v2-pre-verdict`). Changes go in the plan's Amendments section, dated, before then.
+
 ## Metrics and reporting
 - Report log loss and ranked probability score (RPS, outcome order H, D, A) first; accuracy second.
 - Every result is shown next to baselines on the same matches:
@@ -264,6 +277,7 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 11. Forward prediction log and Streamlit app
 12. README and claims audit (`docs/claims.md`, `tests/test_readme_claims.py`); 12b: audit reports
     rebuilt by scripts, targeted leak samples, stratified leakage sample
+13. v2 lineup model: pre-registered plan only (`docs/v2_lineup_plan.md`); built only after its gates
 
 ## Data
 - Source: football-data.co.uk EPL files, `mmz4281/{code}/E0.csv`, 2005-06 to the current season.
