@@ -82,16 +82,25 @@ def targeted_sample(matches: pd.DataFrame, target: str, size: int | None = PLANT
     return shuffled(candidates, seed)[:size]
 
 
+def stratified_from(strata: Iterable[Sequence[object]], population: Sequence[object], size: int = SAMPLE_SIZE,
+                    per_stratum: int = PER_STRATUM, seed: int = SEED) -> list[object]:
+    """`size` items holding at least `per_stratum` from every stratum (all of a smaller one), the
+    rest drawn at random from the remaining population."""
+    rng, chosen = random.Random(seed), []
+    for members in strata:
+        taken = set(chosen)
+        pool = [item for item in members if item not in taken]
+        shortfall = per_stratum - len(taken.intersection(members))
+        chosen += rng.sample(pool, min(max(shortfall, 0), len(pool)))
+    taken = set(chosen)
+    rest = [item for item in population if item not in taken]
+    return chosen + rng.sample(rest, min(size - len(chosen), len(rest)))
+
+
 def stratified_sample(matches: pd.DataFrame, size: int = SAMPLE_SIZE, per_stratum: int = PER_STRATUM,
                       seed: int = SEED) -> list[object]:
     """`size` matches holding at least `per_stratum` from every STRATA case (all of a smaller
     one), the rest drawn at random from the remaining matches."""
-    rng, positions, chosen = random.Random(seed), side_positions(matches), []
-    for condition in STRATA.values():
-        members, taken = matches_where(positions, condition), set(chosen)
-        pool = [match for match in members if match not in taken]
-        shortfall = per_stratum - len(taken.intersection(members))
-        chosen += rng.sample(pool, min(max(shortfall, 0), len(pool)))
-    taken = set(chosen)
-    rest = [match for match in matches.index if match not in taken]
-    return chosen + rng.sample(rest, size - len(chosen))
+    positions = side_positions(matches)
+    strata = [matches_where(positions, condition) for condition in STRATA.values()]
+    return stratified_from(strata, list(matches.index), size, per_stratum, seed)

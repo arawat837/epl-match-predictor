@@ -8,9 +8,10 @@ or pushed). Standard library only. The app never imports this module, so it stay
 
 import json
 import os
+import time
 import urllib.parse
 import urllib.request
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from pathlib import Path
 
 import pandas as pd
@@ -23,6 +24,7 @@ KEY_VARIABLE = "API_FOOTBALL_KEY"
 CACHE_DIR = RAW_DIR / "api_football"
 PREMIER_LEAGUE = 39
 TIMEOUT_SECONDS = 30
+SECONDS_BETWEEN_REQUESTS = 6.5  # stays under the free plan's 10 requests a minute
 FIRST_LINEUP_SEASON = 2015  # 2015-16, lookback only; the offset trains from 2016-17
 LAST_LINEUP_SEASON = 2026  # 2026-27, the verdict season
 COVERAGE_FLAGS = {  # report column -> path inside a season's "coverage" object
@@ -70,6 +72,29 @@ def fetch(endpoint: str, params: Mapping[str, object], key: str | None = None, c
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload), encoding="utf-8")
     return payload
+
+
+def is_cached(endpoint: str, params: Mapping[str, object], cache_dir: Path = CACHE_DIR) -> bool:
+    return cache_path(endpoint, params, cache_dir).exists()
+
+
+Request = tuple[str, Mapping[str, object]]
+
+
+def fetch_missing(requests: Iterable[Request], budget: int, key: str | None = None, cache_dir: Path = CACHE_DIR,
+                  pause: float = SECONDS_BETWEEN_REQUESTS, sleep: Callable[[float], None] = time.sleep,
+                  opener: Callable = urllib.request.urlopen) -> tuple[int, int]:
+    """Fetch the requests not cached yet, in order, making at most `budget` live requests spaced
+    `pause` seconds apart. A refusal (a plan or daily limit) raises; everything fetched before it
+    stays cached. Returns (fetched, still missing)."""
+    missing = [(endpoint, params) for endpoint, params in requests if not is_cached(endpoint, params, cache_dir)]
+    fetched = 0
+    for endpoint, params in missing[:budget]:
+        if fetched:
+            sleep(pause)
+        fetch(endpoint, params, key=key, cache_dir=cache_dir, opener=opener)
+        fetched += 1
+    return fetched, len(missing) - fetched
 
 
 def flag(coverage: Mapping[str, object], path: tuple[str, ...]) -> bool | None:

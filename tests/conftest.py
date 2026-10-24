@@ -64,6 +64,32 @@ def seasons_with_promotion() -> pd.DataFrame:
     return pd.concat([synthetic_season(2005), middle, synthetic_season(2007)], ignore_index=True)
 
 
+def synthetic_lineups(matches: pd.DataFrame) -> pd.DataFrame:
+    """match_lineups-style rows for every match: each team has players team*100 + 1..16, its keeper
+    is player 1 except every 7th match (player 12), it rotates one outfield starter per match, and
+    the 5 players not starting are on the bench."""
+    rows, played = [], {}
+    for match, row in matches.sort_values("date", kind="stable").iterrows():
+        for venue in ("home", "away"):
+            team = int(row[venue].split()[-1])
+            n = played[team] = played.get(team, 0) + 1
+            keeper = 12 if n % 7 == 0 else 1
+            rotated = 2 + n % 10  # one of players 2..11 sits out, replaced by player 13
+            xi = [keeper] + [p for p in range(2, 12) if p != rotated] + [13]
+            bench = [p for p in range(1, 17) if p not in xi][:5]
+            rows += [{"match": match, "side": venue, "player_id": team * 100 + p,
+                      "position": "G" if p == keeper else "M", "starter": True} for p in xi]
+            rows += [{"match": match, "side": venue, "player_id": team * 100 + p, "position": "M", "starter": False}
+                     for p in bench]
+    return pd.DataFrame(rows)
+
+
+@pytest.fixture
+def lineups_with_promotion(seasons_with_promotion: pd.DataFrame) -> pd.DataFrame:
+    """Synthetic lineups for every match of seasons_with_promotion."""
+    return synthetic_lineups(seasons_with_promotion)
+
+
 def season_of(day: pd.Timestamp) -> str:
     """Season label for a date, with seasons turning over on 1 July."""
     return season_label(day.year if day.month >= 7 else day.year - 1)

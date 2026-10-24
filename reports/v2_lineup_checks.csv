@@ -1,0 +1,5 @@
+check,random_cases,random_flagged,targeted_sample,targeted_cases,targeted_flagged,real_code_targeted_flagged
+real code: rebuilt from earlier lineups plus the match's own XI,,,stratified,50,0,
+the match's own bench counted as starters,10,10,a side's 4th or later match with lineup data,10,10,0
+previous XI read from the next match,10,9,a side's first match with lineup data,10,10,0
+regular XI built from later matches,10,4,a side's 2nd or 3rd match with lineup data,10,10,0

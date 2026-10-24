@@ -241,6 +241,11 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 - Gate 0 coverage: `.venv\Scripts\python -m scripts.check_api_coverage` (one cached request; needs
   `API_FOOTBALL_KEY`; exits 1 if any season 2015-16..2026-27 lacks lineups). `src/api_football.py`
   is standard library only and the app never imports it.
+- Lineups: `.venv\Scripts\python -m scripts.fetch_lineups [--budget 90]` fetches fixture lists and one
+  lineup per request (the free plan has no batch `ids` and only 2022-2024), round by round from
+  2024-25; rerun daily to continue. `.venv\Scripts\python -m scripts.check_lineups` (cache only, no
+  scoring) links fixtures (needs 99%), writes `data/processed/lineup_features.parquet` and
+  `reports/v2_lineup_checks.csv`, and exits 1 if the real code is flagged.
 - API-Football data is for personal research only: raw responses go in `data/raw/api_football/`
   (gitignored) and are never committed or pushed, nor are features derived from them. The public
   app shows v1 only until API-Football confirms in writing. The key lives in `API_FOOTBALL_KEY` or
@@ -340,6 +345,9 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 │   ├── leak_report.py         # reports/planted_leaks.csv (random vs targeted, real vs planted)
 │   ├── provenance.py          # reports/forward_provenance.json (git archive recompute)
 │   ├── api_football.py        # v2: API-Football requests, raw cache, coverage flags (app never imports)
+│   ├── lineups.py             # v2: cached fixtures and XIs, team names, linking to matches.parquet
+│   ├── lineup_features.py     # v2: xi_regulars, xi_changes, keeper_changed (plan section 5)
+│   ├── lineup_leaks.py        # v2 Gate L: rebuild checks and planted leaks for lineup features
 │   ├── app_support.py         # offline lookups for the app (history, confidence, fixtures)
 │   ├── metrics.py             # log loss, RPS, accuracy
 │   ├── evaluate.py            # walk-forward runner, metric tables, leakage tripwire
@@ -358,7 +366,9 @@ These rules apply for the whole project. If a rule blocks something, stop and as
 │   ├── score_forward.py
 │   ├── make_planted_leak_report.py
 │   ├── make_forward_provenance.py
-│   └── check_api_coverage.py  # v2 Gate 0: Premier League coverage by season (one request)
+│   ├── check_api_coverage.py  # v2 Gate 0: Premier League coverage by season (one request)
+│   ├── fetch_lineups.py       # v2: fixture lists and lineups into the raw cache, daily budget
+│   └── check_lineups.py       # v2 Gate L: linking, lineup features, leakage checks (no scoring)
 ├── app/
 │   └── app.py                 # Streamlit UI only; calls into src/
 ├── tests/                     # one test module per src module; conftest.py has synthetic seasons

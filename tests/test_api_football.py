@@ -8,7 +8,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from src.api_football import (ApiFootballError, api_key, cache_path, fetch, season_coverage,
+from src.api_football import (ApiFootballError, api_key, cache_path, fetch, fetch_missing, season_coverage,
                               seasons_without_lineups)
 from src.config import PROJECT_ROOT
 
@@ -66,6 +66,29 @@ def test_a_refused_request_raises_and_is_not_cached(tmp_path):
     with pytest.raises(ApiFootballError, match="Free plans"):
         fetch("fixtures", {"league": 39, "season": 2026}, key=KEY, cache_dir=tmp_path, opener=opener)
     assert not cache_path("fixtures", {"league": 39, "season": 2026}, tmp_path).exists()
+
+
+def test_fetch_missing_skips_cached_requests_and_stops_at_the_budget(tmp_path):
+    requests = [("fixtures/lineups", {"fixture": n}) for n in range(5)]
+    fetch(*requests[1], key=KEY, cache_dir=tmp_path, opener=FakeOpener({"errors": [], "response": []}))
+    opener, pauses = FakeOpener({"errors": [], "response": []}), []
+    fetched, missing = fetch_missing(requests, budget=2, key=KEY, cache_dir=tmp_path, sleep=pauses.append, opener=opener)
+    assert (fetched, missing) == (2, 2)
+    assert [request.full_url.rsplit("=", 1)[-1] for request in opener.requests] == ["0", "2"]
+    assert len(pauses) == 1  # a pause between live requests, none before the first
+
+
+def test_fetch_missing_raises_on_a_refusal_and_keeps_what_it_fetched(tmp_path):
+    class RefuseSecond(FakeOpener):
+        def __call__(self, request, timeout: float) -> io.BytesIO:
+            self.payload = {"errors": [], "response": []} if not self.requests else {"errors": {"requests": "limit"}}
+            return super().__call__(request, timeout)
+
+    requests = [("fixtures/lineups", {"fixture": n}) for n in range(3)]
+    with pytest.raises(ApiFootballError, match="limit"):
+        fetch_missing(requests, budget=3, key=KEY, cache_dir=tmp_path, sleep=lambda seconds: None,
+                      opener=RefuseSecond({}))
+    assert cache_path(*requests[0], tmp_path).exists() and not cache_path(*requests[1], tmp_path).exists()
 
 
 def test_season_coverage_reads_each_flag_and_marks_absent_ones():

@@ -10,5 +10,5 @@ edited here; changes to it go in its Amendments section.
 | 0 coverage | 2026-10-25 | passed | `scripts.check_api_coverage`: `/leagues?id=39` marks lineups covered for every season 2010-11 to 2026-27 (player statistics from 2014-15, injuries from 2020-21). |
 | 0 plan access | 2026-10-25 | blocks backfill | The free plan refuses fixtures for 2015 and 2026 ("Free plans do not have access to this season, try from 2022 to 2024"). The backfill (2015-16 to 2026-27) and the verdict season need a paid plan. |
 | 0 timing | | not run | Polling each match's lineup from 90 minutes before kickoff on a matchday (not built yet; needs current-season access). |
-| L (leakage, linking) | | not run | |
+| L (leakage, linking) | 2026-10-25 | passed on the data so far; rerun after the backfill | `scripts.check_lineups`: all 1,140 fixtures of 2022-23 to 2024-25 link to `matches.parquet` (100%). 85 lineups fetched (2024-25 rounds 1 to 9; free plan: one request per match, no batch), all complete. Real code flagged on 0 of 50 stratified rebuilds and on none of the targeted samples. Planted leaks caught (random / targeted): bench counted as starters 10/10 and 10/10; previous XI from the next match 9/10 and 10/10; regular XI from later matches 4/10 and 10/10 (`reports/v2_lineup_checks.csv`). |
 | D (development) | | not run | |

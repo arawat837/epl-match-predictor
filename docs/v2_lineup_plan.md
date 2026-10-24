@@ -181,7 +181,11 @@ difference" is the expected outcome even if lineups help a little.
 Any change after this commit is added below with its date and reason, before the verdict. A change
 made after any 2026-27 v2 result has been seen voids the pre-registration.
 
-(none)
+- 2026-10-25, clarification (no change of intent), written while building the features and before
+  any of them was scored: in `xi_regulars`, "the team's previous 10 league matches in the spell that
+  have lineup data" is read as: take the previous 10 league matches in the spell, and count only
+  those of them that have lineup data (missing if fewer than 3 do). The window is not extended back
+  to find 10 matches with lineups. The two readings differ only when lineups are missing.
 
 ## Sources
 
